@@ -9,38 +9,245 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppUsersRouteImport } from './routes/_app/users'
+import { Route as AppTeacherMonitoringRouteImport } from './routes/_app/teacher-monitoring'
+import { Route as AppSubjectsRouteImport } from './routes/_app/subjects'
+import { Route as AppStudentsRouteImport } from './routes/_app/students'
+import { Route as AppSettingsRouteImport } from './routes/_app/settings'
+import { Route as AppRewardsRouteImport } from './routes/_app/rewards'
+import { Route as AppProfileRouteImport } from './routes/_app/profile'
+import { Route as AppMaterialsRouteImport } from './routes/_app/materials'
+import { Route as AppGradesRouteImport } from './routes/_app/grades'
+import { Route as AppGamificationRouteImport } from './routes/_app/gamification'
+import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
+import { Route as AppAssessmentsRouteImport } from './routes/_app/assessments'
+import { Route as AppAnnouncementsRouteImport } from './routes/_app/announcements'
+import { Route as AppAcademicRouteImport } from './routes/_app/academic'
 
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppUsersRoute = AppUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTeacherMonitoringRoute = AppTeacherMonitoringRouteImport.update({
+  id: '/teacher-monitoring',
+  path: '/teacher-monitoring',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSubjectsRoute = AppSubjectsRouteImport.update({
+  id: '/subjects',
+  path: '/subjects',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStudentsRoute = AppStudentsRouteImport.update({
+  id: '/students',
+  path: '/students',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRewardsRoute = AppRewardsRouteImport.update({
+  id: '/rewards',
+  path: '/rewards',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProfileRoute = AppProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMaterialsRoute = AppMaterialsRouteImport.update({
+  id: '/materials',
+  path: '/materials',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppGradesRoute = AppGradesRouteImport.update({
+  id: '/grades',
+  path: '/grades',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppGamificationRoute = AppGamificationRouteImport.update({
+  id: '/gamification',
+  path: '/gamification',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDashboardRoute = AppDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAssessmentsRoute = AppAssessmentsRouteImport.update({
+  id: '/assessments',
+  path: '/assessments',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAnnouncementsRoute = AppAnnouncementsRouteImport.update({
+  id: '/announcements',
+  path: '/announcements',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAcademicRoute = AppAcademicRouteImport.update({
+  id: '/academic',
+  path: '/academic',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/academic': typeof AppAcademicRoute
+  '/announcements': typeof AppAnnouncementsRoute
+  '/assessments': typeof AppAssessmentsRoute
+  '/dashboard': typeof AppDashboardRoute
+  '/gamification': typeof AppGamificationRoute
+  '/grades': typeof AppGradesRoute
+  '/materials': typeof AppMaterialsRoute
+  '/profile': typeof AppProfileRoute
+  '/rewards': typeof AppRewardsRoute
+  '/settings': typeof AppSettingsRoute
+  '/students': typeof AppStudentsRoute
+  '/subjects': typeof AppSubjectsRoute
+  '/teacher-monitoring': typeof AppTeacherMonitoringRoute
+  '/users': typeof AppUsersRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/academic': typeof AppAcademicRoute
+  '/announcements': typeof AppAnnouncementsRoute
+  '/assessments': typeof AppAssessmentsRoute
+  '/dashboard': typeof AppDashboardRoute
+  '/gamification': typeof AppGamificationRoute
+  '/grades': typeof AppGradesRoute
+  '/materials': typeof AppMaterialsRoute
+  '/profile': typeof AppProfileRoute
+  '/rewards': typeof AppRewardsRoute
+  '/settings': typeof AppSettingsRoute
+  '/students': typeof AppStudentsRoute
+  '/subjects': typeof AppSubjectsRoute
+  '/teacher-monitoring': typeof AppTeacherMonitoringRoute
+  '/users': typeof AppUsersRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_app': typeof AppRouteWithChildren
+  '/login': typeof LoginRoute
+  '/_app/academic': typeof AppAcademicRoute
+  '/_app/announcements': typeof AppAnnouncementsRoute
+  '/_app/assessments': typeof AppAssessmentsRoute
+  '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/gamification': typeof AppGamificationRoute
+  '/_app/grades': typeof AppGradesRoute
+  '/_app/materials': typeof AppMaterialsRoute
+  '/_app/profile': typeof AppProfileRoute
+  '/_app/rewards': typeof AppRewardsRoute
+  '/_app/settings': typeof AppSettingsRoute
+  '/_app/students': typeof AppStudentsRoute
+  '/_app/subjects': typeof AppSubjectsRoute
+  '/_app/teacher-monitoring': typeof AppTeacherMonitoringRoute
+  '/_app/users': typeof AppUsersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/academic'
+    | '/announcements'
+    | '/assessments'
+    | '/dashboard'
+    | '/gamification'
+    | '/grades'
+    | '/materials'
+    | '/profile'
+    | '/rewards'
+    | '/settings'
+    | '/students'
+    | '/subjects'
+    | '/teacher-monitoring'
+    | '/users'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/login'
+    | '/academic'
+    | '/announcements'
+    | '/assessments'
+    | '/dashboard'
+    | '/gamification'
+    | '/grades'
+    | '/materials'
+    | '/profile'
+    | '/rewards'
+    | '/settings'
+    | '/students'
+    | '/subjects'
+    | '/teacher-monitoring'
+    | '/users'
+  id:
+    | '__root__'
+    | '/'
+    | '/_app'
+    | '/login'
+    | '/_app/academic'
+    | '/_app/announcements'
+    | '/_app/assessments'
+    | '/_app/dashboard'
+    | '/_app/gamification'
+    | '/_app/grades'
+    | '/_app/materials'
+    | '/_app/profile'
+    | '/_app/rewards'
+    | '/_app/settings'
+    | '/_app/students'
+    | '/_app/subjects'
+    | '/_app/teacher-monitoring'
+    | '/_app/users'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
+  LoginRoute: typeof LoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +255,148 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/users': {
+      id: '/_app/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof AppUsersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/teacher-monitoring': {
+      id: '/_app/teacher-monitoring'
+      path: '/teacher-monitoring'
+      fullPath: '/teacher-monitoring'
+      preLoaderRoute: typeof AppTeacherMonitoringRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/subjects': {
+      id: '/_app/subjects'
+      path: '/subjects'
+      fullPath: '/subjects'
+      preLoaderRoute: typeof AppSubjectsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/students': {
+      id: '/_app/students'
+      path: '/students'
+      fullPath: '/students'
+      preLoaderRoute: typeof AppStudentsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/rewards': {
+      id: '/_app/rewards'
+      path: '/rewards'
+      fullPath: '/rewards'
+      preLoaderRoute: typeof AppRewardsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/profile': {
+      id: '/_app/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AppProfileRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/materials': {
+      id: '/_app/materials'
+      path: '/materials'
+      fullPath: '/materials'
+      preLoaderRoute: typeof AppMaterialsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/grades': {
+      id: '/_app/grades'
+      path: '/grades'
+      fullPath: '/grades'
+      preLoaderRoute: typeof AppGradesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/gamification': {
+      id: '/_app/gamification'
+      path: '/gamification'
+      fullPath: '/gamification'
+      preLoaderRoute: typeof AppGamificationRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/dashboard': {
+      id: '/_app/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AppDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/assessments': {
+      id: '/_app/assessments'
+      path: '/assessments'
+      fullPath: '/assessments'
+      preLoaderRoute: typeof AppAssessmentsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/announcements': {
+      id: '/_app/announcements'
+      path: '/announcements'
+      fullPath: '/announcements'
+      preLoaderRoute: typeof AppAnnouncementsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/academic': {
+      id: '/_app/academic'
+      path: '/academic'
+      fullPath: '/academic'
+      preLoaderRoute: typeof AppAcademicRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
+interface AppRouteChildren {
+  AppAcademicRoute: typeof AppAcademicRoute
+  AppAnnouncementsRoute: typeof AppAnnouncementsRoute
+  AppAssessmentsRoute: typeof AppAssessmentsRoute
+  AppDashboardRoute: typeof AppDashboardRoute
+  AppGamificationRoute: typeof AppGamificationRoute
+  AppGradesRoute: typeof AppGradesRoute
+  AppMaterialsRoute: typeof AppMaterialsRoute
+  AppProfileRoute: typeof AppProfileRoute
+  AppRewardsRoute: typeof AppRewardsRoute
+  AppSettingsRoute: typeof AppSettingsRoute
+  AppStudentsRoute: typeof AppStudentsRoute
+  AppSubjectsRoute: typeof AppSubjectsRoute
+  AppTeacherMonitoringRoute: typeof AppTeacherMonitoringRoute
+  AppUsersRoute: typeof AppUsersRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppAcademicRoute: AppAcademicRoute,
+  AppAnnouncementsRoute: AppAnnouncementsRoute,
+  AppAssessmentsRoute: AppAssessmentsRoute,
+  AppDashboardRoute: AppDashboardRoute,
+  AppGamificationRoute: AppGamificationRoute,
+  AppGradesRoute: AppGradesRoute,
+  AppMaterialsRoute: AppMaterialsRoute,
+  AppProfileRoute: AppProfileRoute,
+  AppRewardsRoute: AppRewardsRoute,
+  AppSettingsRoute: AppSettingsRoute,
+  AppStudentsRoute: AppStudentsRoute,
+  AppSubjectsRoute: AppSubjectsRoute,
+  AppTeacherMonitoringRoute: AppTeacherMonitoringRoute,
+  AppUsersRoute: AppUsersRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
+  LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
