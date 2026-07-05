@@ -1,4 +1,7 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Sidebar,
   SidebarContent,
@@ -26,12 +29,12 @@ import {
   Bell,
   LogOut,
   Sparkles,
+  type LucideIcon,
 } from "lucide-react";
-import { useAuth, type Role } from "@/lib/auth";
-import { SCHOOL } from "@/lib/mock-data";
+import { useAuth, type Role } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 
-const NAV: Record<Role, { title: string; url: string; icon: any }[]> = {
+const NAV: Record<Role, { title: string; url: string; icon: LucideIcon }[]> = {
   student: [
     { title: "Beranda", url: "/dashboard", icon: LayoutDashboard },
     { title: "Mata Pelajaran", url: "/subjects", icon: BookOpen },
@@ -67,14 +70,14 @@ const NAV: Record<Role, { title: string; url: string; icon: any }[]> = {
 
 export function AppSidebar() {
   const { user, logout } = useAuth();
-  const path = useRouterState({ select: (s) => s.location.pathname });
+  const path = usePathname();
   if (!user) return null;
   const items = NAV[user.role];
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
-        <Link to="/dashboard" className="flex items-center gap-2 px-2 py-3">
+        <Link href="/dashboard" className="flex items-center gap-2 px-2 py-3">
           <div className="grid h-10 w-10 place-items-center rounded-2xl bg-sidebar-primary text-sidebar-primary-foreground shadow-soft">
             <Sparkles className="h-5 w-5" />
           </div>
@@ -97,7 +100,7 @@ export function AppSidebar() {
                 return (
                   <SidebarMenuItem key={it.url}>
                     <SidebarMenuButton asChild isActive={active} tooltip={it.title}>
-                      <Link to={it.url} className="flex items-center gap-3">
+                      <Link href={it.url} className="flex items-center gap-3">
                         <it.icon className="h-4 w-4 shrink-0" />
                         <span>{it.title}</span>
                       </Link>
@@ -124,7 +127,7 @@ export function AppSidebar() {
           <Button
             size="icon"
             variant="ghost"
-            onClick={logout}
+            onClick={() => logout()}
             className="h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent group-data-[collapsible=icon]:hidden"
             aria-label="Keluar"
           >
@@ -132,7 +135,7 @@ export function AppSidebar() {
           </Button>
         </div>
         <div className="px-3 pb-3 text-[10px] text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden">
-          {SCHOOL.name}
+          SD Inpres Nggodimeda
         </div>
       </SidebarFooter>
     </Sidebar>

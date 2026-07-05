@@ -1,12 +1,25 @@
+"use client";
+
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CLASSES } from "@/lib/mock-data";
 import { School } from "lucide-react";
 
-const Ctx = createContext<{ active: string | null; setActive: (v: string | null) => void } | null>(null);
+export interface ClassOption {
+  id: string;
+  name: string;
+}
+
+interface ClassCtx {
+  active: string | null;
+  activeClassId: string | null;
+  setActive: (v: string | null) => void;
+  classes: ClassOption[];
+}
+
+const Ctx = createContext<ClassCtx | null>(null);
 const KEY = "lms_active_class";
 
-export function ClassProvider({ children }: { children: ReactNode }) {
+export function ClassProvider({ classes, children }: { classes: ClassOption[]; children: ReactNode }) {
   const [active, setActiveState] = useState<string | null>(null);
   useEffect(() => {
     const v = localStorage.getItem(KEY);
@@ -17,7 +30,8 @@ export function ClassProvider({ children }: { children: ReactNode }) {
     else localStorage.removeItem(KEY);
     setActiveState(v);
   };
-  return <Ctx.Provider value={{ active, setActive }}>{children}</Ctx.Provider>;
+  const activeClassId = classes.find((c) => c.name === active)?.id ?? null;
+  return <Ctx.Provider value={{ active, activeClassId, setActive, classes }}>{children}</Ctx.Provider>;
 }
 
 export function useActiveClass() {
@@ -27,7 +41,7 @@ export function useActiveClass() {
 }
 
 export function ClassPicker() {
-  const { active, setActive } = useActiveClass();
+  const { active, setActive, classes } = useActiveClass();
   return (
     <div className="flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 shadow-soft">
       <School className="h-4 w-4 text-primary" />
@@ -36,8 +50,10 @@ export function ClassPicker() {
           <SelectValue placeholder="Pilih kelas aktif" />
         </SelectTrigger>
         <SelectContent>
-          {CLASSES.map((c) => (
-            <SelectItem key={c} value={c}>{c}</SelectItem>
+          {classes.map((c) => (
+            <SelectItem key={c.id} value={c.name}>
+              {c.name}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>

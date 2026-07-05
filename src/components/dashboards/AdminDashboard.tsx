@@ -1,15 +1,17 @@
+"use client";
+
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Users, GraduationCap, Building2, Database, Download } from "lucide-react";
-import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import type { getAdminDashboardData } from "@/lib/data/dashboard";
 
-const realtime = Array.from({ length: 12 }).map((_, i) => ({
-  name: `${i}:00`,
-  aktif: Math.round(20 + Math.sin(i / 2) * 18 + Math.random() * 8),
-}));
+type Data = Awaited<ReturnType<typeof getAdminDashboardData>>;
 
-export function AdminDashboard() {
+export function AdminDashboard({ data }: { data: Data }) {
+  // Storage usage isn't tracked yet (no file-upload/Supabase Storage integration) —
+  // shown for layout parity with the original design only.
   const used = 6.4;
   const total = 20;
   const pct = (used / total) * 100;
@@ -20,35 +22,34 @@ export function AdminDashboard() {
         <h1 className="font-display text-3xl font-bold md:text-4xl">Panel Administrasi 🛠️</h1>
         <p className="mt-2 max-w-lg text-sm opacity-90">Kelola pengguna, struktur akademik, dan pengaturan sistem LMS.</p>
         <div className="mt-5 flex flex-wrap gap-2">
-          <Button variant="secondary" className="rounded-xl"><Download className="mr-2 h-4 w-4" /> Backup Database</Button>
-          <Button variant="ghost" className="rounded-xl text-primary-foreground hover:bg-white/15">Import Siswa (Excel)</Button>
+          <Button variant="secondary" className="rounded-xl">
+            <Download className="mr-2 h-4 w-4" /> Backup Database
+          </Button>
+          <Button variant="ghost" className="rounded-xl text-primary-foreground hover:bg-white/15">
+            Import Siswa (Excel)
+          </Button>
         </div>
       </Card>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Stat icon={Users} label="Total Siswa" value="168" />
-        <Stat icon={GraduationCap} label="Total Guru" value="14" />
-        <Stat icon={Building2} label="Kepala Sekolah" value="1" />
-        <Stat icon={Users} label="Total Pengguna" value="184" />
+        <Stat icon={Users} label="Total Siswa" value={String(data.totalStudents)} />
+        <Stat icon={GraduationCap} label="Total Guru" value={String(data.totalTeachers)} />
+        <Stat icon={Building2} label="Kepala Sekolah" value={String(data.totalPrincipals)} />
+        <Stat icon={Users} label="Total Pengguna" value={String(data.totalUsers)} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="rounded-3xl border-0 p-6 shadow-soft lg:col-span-2">
-          <h2 className="font-display text-xl font-bold">Pengguna Aktif (Real-time)</h2>
-          <div className="mt-1 text-xs text-muted-foreground">12 jam terakhir</div>
+          <h2 className="font-display text-xl font-bold">Siswa per Kelas</h2>
+          <div className="mt-1 text-xs text-muted-foreground">Distribusi jumlah siswa di setiap rombel</div>
           <div className="mt-4 h-56">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={realtime}>
-                <defs>
-                  <linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.6} />
-                    <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
+              <BarChart data={data.studentsPerClass}>
                 <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
-                <Tooltip contentStyle={{ borderRadius: 12 }} />
-                <Area type="monotone" dataKey="aktif" stroke="var(--color-primary)" strokeWidth={3} fill="url(#ag)" />
-              </AreaChart>
+                <YAxis hide />
+                <Tooltip contentStyle={{ borderRadius: 12 }} cursor={{ fill: "var(--color-primary-soft)", opacity: 0.4 }} />
+                <Bar dataKey="siswa" radius={[12, 12, 0, 0]} fill="var(--color-primary)" />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </Card>
@@ -59,7 +60,10 @@ export function AdminDashboard() {
             <h2 className="font-display text-xl font-bold">Penyimpanan</h2>
           </div>
           <div className="mt-6 text-center">
-            <div className="font-display text-5xl font-bold">{used}<span className="text-xl text-muted-foreground"> / {total} GB</span></div>
+            <div className="font-display text-5xl font-bold">
+              {used}
+              <span className="text-xl text-muted-foreground"> / {total} GB</span>
+            </div>
             <div className="mt-1 text-xs text-muted-foreground">Terpakai</div>
           </div>
           <Progress value={pct} className="mt-6 h-3" />
@@ -74,7 +78,7 @@ export function AdminDashboard() {
   );
 }
 
-function Stat({ icon: Icon, label, value }: any) {
+function Stat({ icon: Icon, label, value }: { icon: typeof Users; label: string; value: string }) {
   return (
     <Card className="rounded-3xl border-0 p-5 shadow-soft">
       <div className="flex items-center justify-between">

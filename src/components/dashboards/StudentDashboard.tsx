@@ -1,13 +1,17 @@
-import { useAuth } from "@/lib/auth";
-import { ANNOUNCEMENTS, ASSIGNMENTS, BADGES, GRADE_TREND, SUBJECTS } from "@/lib/mock-data";
+"use client";
+
+import { useAuth } from "@/lib/auth-context";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { Link } from "@tanstack/react-router";
+import Link from "next/link";
 import { Megaphone, Star, BookOpen, ArrowRight, Sparkles } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import type { getStudentDashboardData } from "@/lib/data/dashboard";
 
-export function StudentDashboard() {
+type Data = Awaited<ReturnType<typeof getStudentDashboardData>>;
+
+export function StudentDashboard({ data }: { data: Data }) {
   const { user } = useAuth();
   const firstName = user?.name.split(" ")[0] ?? "";
 
@@ -23,20 +27,22 @@ export function StudentDashboard() {
               Halo, {firstName}! Selamat belajar hari ini ✨
             </h1>
             <p className="mt-2 max-w-md text-sm opacity-90">
-              Kamu punya 2 tugas aktif dan 1 kuis baru. Yuk semangat menyelesaikannya!
+              Kamu punya {data.assignments.length} tugas aktif. Yuk semangat menyelesaikannya!
             </p>
             <div className="mt-5 flex gap-3">
               <Button asChild size="lg" variant="secondary" className="rounded-xl">
-                <Link to="/subjects">Mulai Belajar <ArrowRight className="ml-1 h-4 w-4" /></Link>
+                <Link href="/subjects">
+                  Mulai Belajar <ArrowRight className="ml-1 h-4 w-4" />
+                </Link>
               </Button>
               <Button asChild size="lg" variant="ghost" className="rounded-xl text-primary-foreground hover:bg-white/15">
-                <Link to="/rewards">Toko Bintang</Link>
+                <Link href="/rewards">Toko Bintang</Link>
               </Button>
             </div>
           </div>
           <div className="rounded-3xl bg-white/15 px-6 py-5 text-center backdrop-blur">
             <div className="flex items-center justify-center gap-2 text-4xl font-bold">
-              <Star className="h-7 w-7 fill-star text-star" /> 128
+              <Star className="h-7 w-7 fill-star text-star" /> {data.stars}
             </div>
             <div className="mt-1 text-xs uppercase tracking-wider opacity-90">Bintang Kamu</div>
           </div>
@@ -45,10 +51,10 @@ export function StudentDashboard() {
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">
-        <StatCard label="Tugas Aktif" value="2" emoji="📝" />
-        <StatCard label="Materi Baru" value="5" emoji="📚" />
-        <StatCard label="Lencana" value={`${BADGES.filter((b) => b.earned).length}/${BADGES.length}`} emoji="🏅" />
-        <StatCard label="Rata-rata" value="88" emoji="📈" />
+        <StatCard label="Tugas Aktif" value={String(data.assignments.length)} emoji="📝" />
+        <StatCard label="Materi Baru" value={String(data.newMaterialsCount)} emoji="📚" />
+        <StatCard label="Lencana" value={`${data.badgesEarned}/${data.badgesTotal}`} emoji="🏅" />
+        <StatCard label="Rata-rata" value={data.average != null ? String(data.average) : "-"} emoji="📈" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -56,14 +62,14 @@ export function StudentDashboard() {
         <Card className="rounded-3xl border-0 p-6 shadow-soft lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-display text-xl font-bold">Mata Pelajaran Hari Ini</h2>
-            <Link to="/subjects" className="text-xs font-medium text-primary hover:underline">
+            <Link href="/subjects" className="text-xs font-medium text-primary hover:underline">
               Lihat semua →
             </Link>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-            {SUBJECTS.slice(0, 6).map((s) => (
+            {data.subjects.slice(0, 6).map((s) => (
               <Link
-                to="/subjects"
+                href="/subjects"
                 key={s.id}
                 className="group rounded-2xl border bg-card p-4 transition hover:-translate-y-0.5 hover:border-primary hover:shadow-soft"
               >
@@ -74,7 +80,6 @@ export function StudentDashboard() {
                   {s.emoji}
                 </div>
                 <div className="mt-3 font-semibold">{s.name}</div>
-                <div className="text-xs text-muted-foreground">3 materi · 1 kuis</div>
               </Link>
             ))}
           </div>
@@ -87,9 +92,11 @@ export function StudentDashboard() {
             <h2 className="font-display text-xl font-bold">Pengumuman</h2>
           </div>
           <div className="space-y-3">
-            {ANNOUNCEMENTS.map((a) => (
+            {data.announcements.map((a) => (
               <div key={a.id} className="rounded-2xl bg-primary-soft/30 p-4">
-                <div className="text-xs font-medium text-primary">{a.date}</div>
+                <div className="text-xs font-medium text-primary">
+                  {new Date(a.created_at).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long" })}
+                </div>
                 <div className="mt-1 font-semibold">{a.title}</div>
                 <p className="mt-1 text-xs text-muted-foreground">{a.body}</p>
               </div>
@@ -106,7 +113,7 @@ export function StudentDashboard() {
             <h2 className="font-display text-xl font-bold">Tugas Aktif</h2>
           </div>
           <div className="space-y-3">
-            {ASSIGNMENTS.map((a) => (
+            {data.assignments.map((a) => (
               <div key={a.id} className="flex flex-wrap items-center gap-4 rounded-2xl border p-4">
                 <div className="grid h-12 w-12 place-items-center rounded-xl bg-secondary text-xl">📌</div>
                 <div className="min-w-0 flex-1">
@@ -117,15 +124,18 @@ export function StudentDashboard() {
                 <Button className="rounded-xl">Mulai Kerjakan</Button>
               </div>
             ))}
+            {data.assignments.length === 0 && (
+              <p className="text-sm text-muted-foreground">Tidak ada tugas aktif saat ini.</p>
+            )}
           </div>
         </Card>
 
         <Card className="rounded-3xl border-0 p-6 shadow-soft">
           <h2 className="font-display text-xl font-bold">Progres Nilaiku</h2>
-          <div className="mt-1 text-xs text-muted-foreground">6 bulan terakhir</div>
+          <div className="mt-1 text-xs text-muted-foreground">Rata-rata bulanan</div>
           <div className="mt-4 h-44">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={GRADE_TREND}>
+              <AreaChart data={data.trend}>
                 <defs>
                   <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.5} />
@@ -143,10 +153,10 @@ export function StudentDashboard() {
             <span className="text-muted-foreground">Target semester</span>
             <span className="font-semibold">85</span>
           </div>
-          <Progress value={91} className="mt-2 h-2" />
+          <Progress value={data.average ?? 0} className="mt-2 h-2" />
           <div className="mt-3 flex items-center gap-2 rounded-2xl bg-accent/40 p-3 text-xs">
             <Sparkles className="h-4 w-4 text-primary" />
-            <span>Kerja bagus! Kamu di atas target bulan ini.</span>
+            <span>Kerja bagus! Terus tingkatkan belajarmu.</span>
           </div>
         </Card>
       </div>
