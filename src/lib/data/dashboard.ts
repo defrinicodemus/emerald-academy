@@ -10,6 +10,8 @@ export async function getStudentDashboardData(studentId: string, classId: string
     { data: badges },
     { data: grades },
     { data: subjects },
+    { data: totalBadges },
+    { data: materialsThisWeek },
   ] = await Promise.all([
     supabase
       .from("announcements")
@@ -36,16 +38,15 @@ export async function getStudentDashboardData(studentId: string, classId: string
       .eq("student_id", studentId)
       .order("period_month"),
     supabase.from("subjects").select("id, code, name, emoji, color").order("name"),
+    supabase.from("badges").select("id"),
+    classId
+      ? supabase
+          .from("materials")
+          .select("id")
+          .eq("class_id", classId)
+          .gte("created_at", new Date(Date.now() - 7 * 86400000).toISOString())
+      : Promise.resolve({ data: [] as never[] }),
   ]);
-
-  const { data: totalBadges } = await supabase.from("badges").select("id");
-  const { data: materialsThisWeek } = classId
-    ? await supabase
-        .from("materials")
-        .select("id")
-        .eq("class_id", classId)
-        .gte("created_at", new Date(Date.now() - 7 * 86400000).toISOString())
-    : { data: [] };
 
   const byMonth = new Map<string, { sum: number; count: number }>();
   for (const g of grades ?? []) {
@@ -86,20 +87,21 @@ export async function getStudentDashboardData(studentId: string, classId: string
 
 export async function getPrincipalDashboardData() {
   const supabase = await createClient();
-  const [{ data: profiles }, { data: subjects }, { data: classes }] = await Promise.all([
+  const [
+    { data: profiles },
+    { data: subjects },
+    { data: classes },
+    { data: materialsBySubject },
+    { data: assignmentsBySubject },
+  ] = await Promise.all([
     supabase.from("profiles").select("role"),
     supabase.from("subjects").select("id"),
     supabase.from("classes").select("id"),
+    supabase.from("materials").select("subjects(name)"),
+    supabase.from("assignments").select("subjects(name)"),
   ]);
   const counts = { student: 0, teacher: 0, principal: 0, admin: 0 };
   for (const row of profiles ?? []) counts[row.role as keyof typeof counts]++;
-
-  const { data: materialsBySubject } = await supabase
-    .from("materials")
-    .select("subjects(name)");
-  const { data: assignmentsBySubject } = await supabase
-    .from("assignments")
-    .select("subjects(name)");
 
   const bySubject = new Map<string, number>();
   for (const row of materialsBySubject ?? []) {
@@ -123,15 +125,13 @@ export async function getPrincipalDashboardData() {
 
 export async function getAdminDashboardData() {
   const supabase = await createClient();
-  const { data: profiles } = await supabase.from("profiles").select("role");
+  const [{ data: profiles }, { data: classRows }, { data: studentClassRows }] = await Promise.all([
+    supabase.from("profiles").select("role"),
+    supabase.from("classes").select("id, name, grade_level").order("grade_level"),
+    supabase.from("profiles").select("class_id").eq("role", "student"),
+  ]);
   const counts = { student: 0, teacher: 0, principal: 0, admin: 0 };
   for (const row of profiles ?? []) counts[row.role as keyof typeof counts]++;
-
-  const { data: classRows } = await supabase.from("classes").select("id, name, grade_level").order("grade_level");
-  const { data: studentClassRows } = await supabase
-    .from("profiles")
-    .select("class_id")
-    .eq("role", "student");
   const perClass = new Map<string, number>();
   for (const row of studentClassRows ?? []) {
     if (!row.class_id) continue;

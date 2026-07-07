@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/data/profile";
-import { createClient } from "@/lib/supabase/server";
 import { getStudentDashboardData, getPrincipalDashboardData, getAdminDashboardData } from "@/lib/data/dashboard";
 import { listTeachersWithStats } from "@/lib/data/people";
 import { StudentDashboard } from "@/components/dashboards/StudentDashboard";
@@ -16,9 +15,7 @@ export default async function DashboardPage() {
   if (!user) redirect("/login");
 
   if (user.role === "student") {
-    const supabase = await createClient();
-    const { data: profile } = await supabase.from("profiles").select("class_id").eq("id", user.id).single();
-    const data = await getStudentDashboardData(user.id, profile?.class_id ?? null);
+    const data = await getStudentDashboardData(user.id, user.classId ?? null);
     return <StudentDashboard data={data} />;
   }
 

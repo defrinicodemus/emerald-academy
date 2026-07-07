@@ -56,7 +56,7 @@ export default function AssessmentsPage() {
       const assignmentById = new Map((assignments ?? []).map((a) => [a.id, a]));
       const { data: submissions } = await supabase
         .from("submissions")
-        .select("id, status, assignment_id, profiles(full_name, avatar_emoji)")
+        .select("id, status, assignment_id, profiles!submissions_student_id_fkey(full_name, avatar_emoji)")
         .in("assignment_id", ids);
 
       let graded = 0;

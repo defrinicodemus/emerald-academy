@@ -2,19 +2,26 @@ import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload } from "lucide-react";
 import { listStudentsWithAvg, listTeachersWithStats, getPrincipal } from "@/lib/data/people";
+import { listClasses } from "@/lib/data/school";
+import { StudentsPanel } from "./StudentsPanel";
+import { TeachersPanel } from "./TeachersPanel";
 
 export default async function UsersPage() {
-  const [students, teachers, principal] = await Promise.all([
+  const [students, teachers, principal, classes] = await Promise.all([
     listStudentsWithAvg(),
     listTeachersWithStats(),
     getPrincipal(),
+    listClasses(),
   ]);
 
   return (
     <div className="space-y-6">
-      <PageHeader icon="👥" title="Manajemen Pengguna" subtitle="Kelola akun guru, siswa, dan kepala sekolah" />
+      <PageHeader
+        icon="👥"
+        title="Manajemen Pengguna"
+        subtitle="Kelola akun guru, siswa, dan kepala sekolah"
+      />
       <Tabs defaultValue="siswa">
         <TabsList className="rounded-2xl bg-muted p-1">
           <TabsTrigger value="siswa" className="rounded-xl">
@@ -30,28 +37,13 @@ export default async function UsersPage() {
 
         <TabsContent value="siswa" className="mt-4">
           <Card className="rounded-3xl border-0 p-6 shadow-soft">
-            <div className="mb-4 flex flex-wrap gap-2">
-              <Button className="rounded-xl">+ Tambah Siswa</Button>
-              <Button variant="outline" className="rounded-xl">
-                <Upload className="mr-2 h-4 w-4" /> Import Excel
-              </Button>
-            </div>
-            <SimpleTable
-              cols={["Nama", "NISN", "Kelas", "Aksi"]}
-              rows={students.map((s) => [s.name, s.nisn ?? "-", s.className ?? "-", "Edit"])}
-            />
+            <StudentsPanel students={students} classes={classes} />
           </Card>
         </TabsContent>
 
         <TabsContent value="guru" className="mt-4">
           <Card className="rounded-3xl border-0 p-6 shadow-soft">
-            <div className="mb-4">
-              <Button className="rounded-xl">+ Tambah Guru</Button>
-            </div>
-            <SimpleTable
-              cols={["Nama", "NIP", "Mata Pelajaran", "Aksi"]}
-              rows={teachers.map((t) => [t.name, t.nip ?? "-", t.subject, "Edit"])}
-            />
+            <TeachersPanel teachers={teachers} />
           </Card>
         </TabsContent>
 

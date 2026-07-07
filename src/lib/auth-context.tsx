@@ -10,6 +10,7 @@ export interface AuthUser {
   role: Role;
   nisn?: string;
   nip?: string;
+  classId?: string;
   className?: string;
   avatar?: string;
 }

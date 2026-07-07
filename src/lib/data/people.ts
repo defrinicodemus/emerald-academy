@@ -4,7 +4,7 @@ export async function listStudentsWithAvg() {
   const supabase = await createClient();
   const { data: students } = await supabase
     .from("profiles")
-    .select("id, full_name, nisn, classes(name)")
+    .select("id, full_name, nisn, class_id, classes!profiles_class_id_fkey(name)")
     .eq("role", "student")
     .order("full_name");
 
@@ -23,6 +23,7 @@ export async function listStudentsWithAvg() {
       id: s.id,
       name: s.full_name,
       nisn: s.nisn as string | null,
+      classId: s.class_id as string | null,
       className: (s.classes as unknown as { name: string } | null)?.name ?? null,
       avg: acc ? Math.round(acc.sum / acc.count) : null,
     };
@@ -46,7 +47,8 @@ export async function listTeachersWithStats() {
   const subjectByTeacher = new Map<string, string>();
   for (const row of cts ?? []) {
     const subjName = (row.subjects as unknown as { name: string } | null)?.name;
-    if (subjName && !subjectByTeacher.has(row.teacher_id)) subjectByTeacher.set(row.teacher_id, subjName);
+    if (subjName && !subjectByTeacher.has(row.teacher_id))
+      subjectByTeacher.set(row.teacher_id, subjName);
   }
   const countBy = (rows: { teacher_id: string | null }[] | null | undefined) => {
     const m = new Map<string, number>();

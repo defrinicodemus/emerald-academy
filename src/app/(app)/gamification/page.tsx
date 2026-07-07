@@ -45,7 +45,7 @@ export default function GamificationPage() {
 
     const { data: pendingRequests } = await supabase
       .from("reward_redemptions")
-      .select("id, cost, profiles(full_name, class_id), rewards(name)")
+      .select("id, cost, profiles!reward_redemptions_student_id_fkey(full_name, class_id), rewards(name)")
       .eq("status", "pending");
     const filtered = (pendingRequests ?? []).filter(
       (r) => (r.profiles as unknown as { class_id: string | null } | null)?.class_id === activeClassId,
