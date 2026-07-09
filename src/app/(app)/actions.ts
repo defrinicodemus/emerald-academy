@@ -3,11 +3,47 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function logout() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/login");
+}
+
+export async function changePassword(
+  formData: FormData,
+): Promise<{ ok: boolean; message: string }> {
+  const currentPassword = String(formData.get("current_password") ?? "");
+  const newPassword = String(formData.get("new_password") ?? "");
+  const confirmPassword = String(formData.get("confirm_password") ?? "");
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    return { ok: false, message: "Semua kolom wajib diisi." };
+  }
+  if (newPassword !== confirmPassword) {
+    return { ok: false, message: "Konfirmasi kata sandi baru tidak cocok." };
+  }
+  if (newPassword.length < 6) {
+    return { ok: false, message: "Kata sandi baru minimal 6 karakter." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user?.email) return { ok: false, message: "Sesi tidak valid, silakan login ulang." };
+
+  const { error: verifyError } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: currentPassword,
+  });
+  if (verifyError) return { ok: false, message: "Kata sandi lama salah." };
+
+  const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+  if (updateError) return { ok: false, message: updateError.message };
+
+  return { ok: true, message: "Kata sandi berhasil diubah." };
 }
 
 export async function publishAnnouncement(formData: FormData) {
@@ -44,6 +80,36 @@ export async function saveSchoolSettings(formData: FormData) {
 
   await supabase.from("schools").update({ name, address, phone }).eq("id", school.id);
   revalidatePath("/settings");
+}
+
+export async function uploadSchoolLogo(
+  formData: FormData,
+): Promise<{ ok: boolean; message: string }> {
+  const file = formData.get("logo") as File | null;
+  if (!file || file.size === 0) return { ok: false, message: "Pilih file logo dulu." };
+
+  const supabase = await createClient();
+  const { data: school } = await supabase.from("schools").select("id").limit(1).single();
+  if (!school) return { ok: false, message: "Data sekolah tidak ditemukan." };
+
+  const ext = file.name.split(".").pop() || "png";
+  const path = `logo/${Date.now()}.${ext}`;
+
+  const admin = createAdminClient();
+  const { error: uploadError } = await admin.storage
+    .from("school-assets")
+    .upload(path, file, { contentType: file.type, upsert: true });
+  if (uploadError) return { ok: false, message: uploadError.message };
+
+  const {
+    data: { publicUrl },
+  } = admin.storage.from("school-assets").getPublicUrl(path);
+
+  await supabase.from("schools").update({ logo_url: publicUrl }).eq("id", school.id);
+  revalidatePath("/settings");
+  revalidatePath("/login");
+
+  return { ok: true, message: "Logo sekolah berhasil diperbarui." };
 }
 
 export async function createClass(formData: FormData) {
@@ -196,10 +262,19 @@ const SUBJECT_COLOR_PALETTE = [
   "oklch(0.72 0.16 330)",
 ];
 
+function parseGrade(formData: FormData, field: string): number | null {
+  const raw = String(formData.get(field) ?? "").trim();
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
 export async function createSubject(formData: FormData) {
   const code = String(formData.get("code") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   const emoji = String(formData.get("emoji") ?? "").trim();
+  const minGrade = parseGrade(formData, "min_grade");
+  const maxGrade = parseGrade(formData, "max_grade");
   if (!code || !name) return;
 
   const supabase = await createClient();
@@ -218,6 +293,8 @@ export async function createSubject(formData: FormData) {
     name,
     emoji: emoji || null,
     color,
+    min_grade: minGrade,
+    max_grade: maxGrade,
   });
   revalidatePath("/academic");
 }
@@ -226,12 +303,14 @@ export async function updateSubject(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const emoji = String(formData.get("emoji") ?? "").trim();
+  const minGrade = parseGrade(formData, "min_grade");
+  const maxGrade = parseGrade(formData, "max_grade");
   if (!id || !name) return;
 
   const supabase = await createClient();
   await supabase
     .from("subjects")
-    .update({ name, emoji: emoji || null })
+    .update({ name, emoji: emoji || null, min_grade: minGrade, max_grade: maxGrade })
     .eq("id", id);
   revalidatePath("/academic");
 }

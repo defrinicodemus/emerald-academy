@@ -9,8 +9,8 @@ export async function getMasterKelasData() {
     { data: assignments },
     { data: students },
   ] = await Promise.all([
-    supabase.from("classes").select("id, name").order("grade_level"),
-    supabase.from("subjects").select("id, name, emoji").order("name"),
+    supabase.from("classes").select("id, name, grade_level").order("grade_level"),
+    supabase.from("subjects").select("id, name, emoji, min_grade, max_grade").order("name"),
     supabase.from("profiles").select("id, full_name").eq("role", "teacher").order("full_name"),
     supabase.from("class_teacher_subjects").select("class_id, subject_id, teacher_id"),
     supabase

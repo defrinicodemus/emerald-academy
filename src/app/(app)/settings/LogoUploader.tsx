@@ -1,0 +1,62 @@
+"use client";
+
+import { useRef, useState, useTransition } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { uploadSchoolLogo } from "../actions";
+
+export function LogoUploader({ logoUrl }: { logoUrl: string | null }) {
+  const [preview, setPreview] = useState<string | null>(logoUrl);
+  const [isPending, startTransition] = useTransition();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.set("logo", file);
+    startTransition(async () => {
+      const result = await uploadSchoolLogo(formData);
+      if (result.ok) {
+        toast.success(result.message);
+        setPreview(URL.createObjectURL(file));
+      } else {
+        toast.error(result.message);
+      }
+      if (inputRef.current) inputRef.current.value = "";
+    });
+  }
+
+  return (
+    <div className="flex items-center gap-4">
+      <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl border bg-muted">
+        {preview ? (
+          <img src={preview} alt="Logo sekolah" className="h-full w-full object-cover" />
+        ) : (
+          <span className="text-xs text-muted-foreground">Belum ada</span>
+        )}
+      </div>
+      <div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+          className="hidden"
+          onChange={handleFileChange}
+          disabled={isPending}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          className="rounded-xl"
+          disabled={isPending}
+          onClick={() => inputRef.current?.click()}
+        >
+          {isPending ? "Mengunggah..." : "Unggah Logo"}
+        </Button>
+        <p className="mt-1 text-xs text-muted-foreground">PNG/JPG/WEBP/SVG, maks 2MB.</p>
+      </div>
+    </div>
+  );
+}

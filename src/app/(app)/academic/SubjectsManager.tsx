@@ -27,7 +27,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { createSubject, updateSubject, deleteSubject } from "../actions";
 
-type SubjectRow = { id: string; code: string; name: string; emoji: string | null };
+type SubjectRow = {
+  id: string;
+  code: string;
+  name: string;
+  emoji: string | null;
+  min_grade: number | null;
+  max_grade: number | null;
+};
 
 const EMOJI_OPTIONS = [
   "🔢",
@@ -55,6 +62,13 @@ const EMOJI_OPTIONS = [
   "➗",
   "🔭",
 ];
+
+function gradeRangeLabel(min: number | null, max: number | null): string | null {
+  if (min == null && max == null) return null;
+  if (min != null && max != null) return `Kelas ${min}-${max}`;
+  if (min != null) return `Kelas ${min}+`;
+  return `s.d. Kelas ${max}`;
+}
 
 export function SubjectsManager({ subjects }: { subjects: SubjectRow[] }) {
   const [open, setOpen] = useState(false);
@@ -130,6 +144,33 @@ export function SubjectsManager({ subjects }: { subjects: SubjectRow[] }) {
                 <Input name="name" defaultValue={editing?.name ?? ""} className="mt-1" required />
               </div>
               <div>
+                <Label>Berlaku untuk Kelas</Label>
+                <div className="mt-1 flex items-center gap-2">
+                  <Input
+                    name="min_grade"
+                    type="number"
+                    min={1}
+                    max={6}
+                    placeholder="Min"
+                    defaultValue={editing?.min_grade ?? ""}
+                    className="w-20"
+                  />
+                  <span className="text-sm text-muted-foreground">s.d.</span>
+                  <Input
+                    name="max_grade"
+                    type="number"
+                    min={1}
+                    max={6}
+                    placeholder="Maks"
+                    defaultValue={editing?.max_grade ?? ""}
+                    className="w-20"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Kosongkan kalau berlaku untuk semua kelas (1-6).
+                </p>
+              </div>
+              <div>
                 <Label>Emoji</Label>
                 <div className="mt-1 grid grid-cols-6 gap-1 rounded-xl border p-2">
                   {EMOJI_OPTIONS.map((option) => (
@@ -185,16 +226,24 @@ export function SubjectsManager({ subjects }: { subjects: SubjectRow[] }) {
         </Dialog>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
-        {subjects.map((s) => (
-          <button
-            key={s.id}
-            onClick={() => openEdit(s)}
-            className="flex items-center gap-2 rounded-2xl border px-3 py-2 text-left text-sm font-medium hover:bg-muted/50"
-          >
-            <span className="text-lg">{s.emoji}</span>
-            {s.name}
-          </button>
-        ))}
+        {subjects.map((s) => {
+          const rangeLabel = gradeRangeLabel(s.min_grade, s.max_grade);
+          return (
+            <button
+              key={s.id}
+              onClick={() => openEdit(s)}
+              className="flex items-center gap-2 rounded-2xl border px-3 py-2 text-left text-sm font-medium hover:bg-muted/50"
+            >
+              <span className="text-lg">{s.emoji}</span>
+              <span className="flex-1">{s.name}</span>
+              {rangeLabel && (
+                <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">
+                  {rangeLabel}
+                </span>
+              )}
+            </button>
+          );
+        })}
         {subjects.length === 0 && (
           <p className="text-sm text-muted-foreground">Belum ada mata pelajaran.</p>
         )}

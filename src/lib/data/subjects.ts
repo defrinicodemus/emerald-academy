@@ -7,12 +7,32 @@ export interface ContentRow {
   due_at?: string | null;
 }
 
+export function appliesToGrade(
+  gradeLevel: number | null,
+  minGrade: number | null,
+  maxGrade: number | null,
+) {
+  if (gradeLevel == null) return true;
+  if (minGrade != null && gradeLevel < minGrade) return false;
+  if (maxGrade != null && gradeLevel > maxGrade) return false;
+  return true;
+}
+
 export async function getSubjectsExplorerData(classId: string | null) {
   const supabase = await createClient();
-  const { data: subjects } = await supabase
-    .from("subjects")
-    .select("id, code, name, emoji, color")
-    .order("name");
+  const [{ data: subjects }, { data: klass }] = await Promise.all([
+    supabase
+      .from("subjects")
+      .select("id, code, name, emoji, color, min_grade, max_grade")
+      .order("name"),
+    classId
+      ? supabase.from("classes").select("grade_level").eq("id", classId).single()
+      : Promise.resolve({ data: null }),
+  ]);
+  const gradeLevel = klass?.grade_level ?? null;
+  const visibleSubjects = (subjects ?? []).filter((s) =>
+    appliesToGrade(gradeLevel, s.min_grade, s.max_grade),
+  );
 
   const materialsBySubject: Record<string, ContentRow[]> = {};
   const assignmentsBySubject: Record<string, ContentRow[]> = {};
@@ -38,5 +58,5 @@ export async function getSubjectsExplorerData(classId: string | null) {
     }
   }
 
-  return { subjects: subjects ?? [], materialsBySubject, assignmentsBySubject };
+  return { subjects: visibleSubjects, materialsBySubject, assignmentsBySubject };
 }

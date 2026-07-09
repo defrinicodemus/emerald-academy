@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { appliesToGrade } from "@/lib/data/subjects";
 
 export async function getStudentDashboardData(studentId: string, classId: string | null) {
   const supabase = await createClient();
@@ -12,6 +13,7 @@ export async function getStudentDashboardData(studentId: string, classId: string
     { data: subjects },
     { data: totalBadges },
     { data: materialsThisWeek },
+    { data: klass },
   ] = await Promise.all([
     supabase
       .from("announcements")
@@ -37,7 +39,10 @@ export async function getStudentDashboardData(studentId: string, classId: string
       .select("period_month, score")
       .eq("student_id", studentId)
       .order("period_month"),
-    supabase.from("subjects").select("id, code, name, emoji, color").order("name"),
+    supabase
+      .from("subjects")
+      .select("id, code, name, emoji, color, min_grade, max_grade")
+      .order("name"),
     supabase.from("badges").select("id"),
     classId
       ? supabase
@@ -46,7 +51,15 @@ export async function getStudentDashboardData(studentId: string, classId: string
           .eq("class_id", classId)
           .gte("created_at", new Date(Date.now() - 7 * 86400000).toISOString())
       : Promise.resolve({ data: [] as never[] }),
+    classId
+      ? supabase.from("classes").select("grade_level").eq("id", classId).single()
+      : Promise.resolve({ data: null }),
   ]);
+
+  const gradeLevel = klass?.grade_level ?? null;
+  const visibleSubjects = (subjects ?? []).filter((s) =>
+    appliesToGrade(gradeLevel, s.min_grade, s.max_grade),
+  );
 
   const byMonth = new Map<string, { sum: number; count: number }>();
   for (const g of grades ?? []) {
@@ -80,7 +93,7 @@ export async function getStudentDashboardData(studentId: string, classId: string
     badgesTotal: totalBadges?.length ?? 0,
     average,
     trend,
-    subjects: subjects ?? [],
+    subjects: visibleSubjects,
     newMaterialsCount: materialsThisWeek?.length ?? 0,
   };
 }

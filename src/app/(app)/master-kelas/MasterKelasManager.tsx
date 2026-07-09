@@ -34,9 +34,21 @@ import {
 } from "@/components/ui/alert-dialog";
 import { setClassSubjectTeacher, assignStudentToClass } from "../actions";
 
-type ClassOption = { id: string; name: string };
-type Subject = { id: string; name: string; emoji: string | null };
+type ClassOption = { id: string; name: string; grade_level: number };
+type Subject = {
+  id: string;
+  name: string;
+  emoji: string | null;
+  min_grade: number | null;
+  max_grade: number | null;
+};
 type Teacher = { id: string; name: string };
+
+function appliesToGrade(gradeLevel: number, minGrade: number | null, maxGrade: number | null) {
+  if (minGrade != null && gradeLevel < minGrade) return false;
+  if (maxGrade != null && gradeLevel > maxGrade) return false;
+  return true;
+}
 type Assignment = { class_id: string; subject_id: string; teacher_id: string };
 type Student = {
   id: string;
@@ -79,7 +91,14 @@ export function MasterKelasManager({
     () => students.filter((s) => s.classId !== classId),
     [students, classId],
   );
-  const selectedClassName = classes.find((c) => c.id === classId)?.name ?? "-";
+  const selectedClass = classes.find((c) => c.id === classId);
+  const selectedClassName = selectedClass?.name ?? "-";
+  const visibleSubjects = useMemo(() => {
+    if (!selectedClass) return subjects;
+    return subjects.filter((s) =>
+      appliesToGrade(selectedClass.grade_level, s.min_grade, s.max_grade),
+    );
+  }, [subjects, selectedClass]);
 
   function handleTeacherChange(subjectId: string, teacherId: string) {
     startTransition(async () => {
@@ -142,7 +161,7 @@ export function MasterKelasManager({
             <h2 className="font-display text-xl font-bold">Guru & Mata Pelajaran</h2>
             <div className="mt-1 text-xs text-muted-foreground">{selectedClassName}</div>
             <div className="mt-4 space-y-2">
-              {subjects.map((s) => {
+              {visibleSubjects.map((s) => {
                 const current = teacherBySubject.get(s.id) ?? NONE;
                 return (
                   <div
@@ -173,8 +192,10 @@ export function MasterKelasManager({
                   </div>
                 );
               })}
-              {subjects.length === 0 && (
-                <p className="text-sm text-muted-foreground">Belum ada mata pelajaran.</p>
+              {visibleSubjects.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Tidak ada mata pelajaran untuk tingkat kelas ini.
+                </p>
               )}
             </div>
           </Card>

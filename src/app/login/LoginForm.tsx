@@ -9,7 +9,13 @@ import { DEMO_ACCOUNTS } from "@/lib/demo-accounts";
 import { Sparkles, GraduationCap, ShieldCheck, Star } from "lucide-react";
 import { login } from "./actions";
 
-export function LoginForm() {
+export function LoginForm({
+  schoolName,
+  logoUrl,
+}: {
+  schoolName: string | null;
+  logoUrl: string | null;
+}) {
   const searchParams = useSearchParams();
   const err = searchParams.get("error");
   const [username, setUsername] = useState("");
@@ -37,11 +43,11 @@ export function LoginForm() {
               <h1 className="mt-5 font-display text-4xl font-bold leading-tight md:text-5xl">
                 Belajar ceria di
                 <br />
-                <span className="text-accent">SD Inpres Nggodimeda</span>
+                <span className="text-accent">{schoolName ?? "SD Inpres Nggodimeda"}</span>
               </h1>
               <p className="mt-4 max-w-md text-sm text-primary-foreground/85 md:text-base">
-                Materi, tugas, kuis, dan bintang penghargaan — semua dalam satu tempat hangat
-                untuk murid, guru, dan kepala sekolah.
+                Materi, tugas, kuis, dan bintang penghargaan — semua dalam satu tempat hangat untuk
+                murid, guru, dan kepala sekolah.
               </p>
               <div className="mt-8 grid grid-cols-3 gap-3">
                 {[
@@ -63,8 +69,16 @@ export function LoginForm() {
         <section className="order-1 md:order-2">
           <div className="rounded-3xl border bg-card p-6 shadow-soft md:p-8">
             <div className="mb-6">
-              <div className="inline-grid h-12 w-12 place-items-center rounded-2xl gradient-primary text-primary-foreground shadow-glow">
-                <Sparkles className="h-6 w-6" />
+              <div className="inline-grid h-12 w-12 place-items-center overflow-hidden rounded-2xl gradient-primary text-primary-foreground shadow-glow">
+                {logoUrl ? (
+                  <img
+                    src={logoUrl}
+                    alt={schoolName ?? "Logo sekolah"}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <Sparkles className="h-6 w-6" />
+                )}
               </div>
               <h2 className="mt-4 font-display text-2xl font-bold">Selamat datang kembali</h2>
               <p className="text-sm text-muted-foreground">Masuk untuk melanjutkan belajar.</p>
@@ -92,11 +106,21 @@ export function LoginForm() {
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
-              {err && <div className="rounded-xl bg-destructive/10 px-3 py-2 text-xs text-destructive">{err}</div>}
-              <Button type="submit" className="h-11 w-full rounded-xl text-base font-semibold shadow-soft">
+              {err && (
+                <div className="rounded-xl bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  {err}
+                </div>
+              )}
+              <Button
+                type="submit"
+                className="h-11 w-full rounded-xl text-base font-semibold shadow-soft"
+              >
                 Masuk
               </Button>
-              <button type="button" className="block w-full text-center text-xs text-muted-foreground hover:text-primary">
+              <button
+                type="button"
+                className="block w-full text-center text-xs text-muted-foreground hover:text-primary"
+              >
                 Lupa kata sandi?
               </button>
             </form>

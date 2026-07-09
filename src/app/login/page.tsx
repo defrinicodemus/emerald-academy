@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getSchool } from "@/lib/data/school";
 import { LoginForm } from "./LoginForm";
 
 export const metadata: Metadata = {
@@ -7,10 +8,12 @@ export const metadata: Metadata = {
   description: "Masuk ke LMS SD Inpres Nggodimeda untuk murid, guru, kepala sekolah, dan admin.",
 };
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const school = await getSchool();
+
   return (
     <Suspense fallback={null}>
-      <LoginForm />
+      <LoginForm schoolName={school?.name ?? null} logoUrl={school?.logo_url ?? null} />
     </Suspense>
   );
 }

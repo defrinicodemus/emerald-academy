@@ -2,13 +2,20 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function getSchool() {
   const supabase = await createClient();
-  const { data } = await supabase.from("schools").select("id, name, tagline, address, phone").limit(1).single();
+  const { data } = await supabase
+    .from("schools")
+    .select("id, name, tagline, address, phone, logo_url")
+    .limit(1)
+    .single();
   return data;
 }
 
 export async function listClasses() {
   const supabase = await createClient();
-  const { data } = await supabase.from("classes").select("id, name, grade_level").order("grade_level");
+  const { data } = await supabase
+    .from("classes")
+    .select("id, name, grade_level")
+    .order("grade_level");
   return data ?? [];
 }
 

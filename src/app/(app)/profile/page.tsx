@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { getCurrentUser } from "@/lib/data/profile";
 import { logout } from "../actions";
+import { ChangePasswordDialog } from "./ChangePasswordDialog";
 
 export default async function ProfilePage() {
   const user = await getCurrentUser();
@@ -38,9 +39,7 @@ export default async function ProfilePage() {
       <Card className="rounded-3xl border-0 p-6 shadow-soft">
         <h3 className="font-display text-lg font-bold">Pengaturan Akun</h3>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <Button variant="outline" className="h-12 justify-start rounded-xl">
-            Ganti Kata Sandi
-          </Button>
+          <ChangePasswordDialog />
           <Button variant="outline" className="h-12 justify-start rounded-xl">
             Notifikasi
           </Button>

@@ -39,16 +39,19 @@ export async function listTeachersWithStats() {
     .order("full_name");
 
   const [{ data: cts }, { data: materials }, { data: assignments }] = await Promise.all([
-    supabase.from("class_teacher_subjects").select("teacher_id, subjects(name)"),
+    supabase.from("class_teacher_subjects").select("teacher_id, subjects(name), classes(name)"),
     supabase.from("materials").select("teacher_id"),
     supabase.from("assignments").select("teacher_id"),
   ]);
 
-  const subjectByTeacher = new Map<string, string>();
+  const teachingByTeacher = new Map<string, { className: string; subjectName: string }[]>();
   for (const row of cts ?? []) {
-    const subjName = (row.subjects as unknown as { name: string } | null)?.name;
-    if (subjName && !subjectByTeacher.has(row.teacher_id))
-      subjectByTeacher.set(row.teacher_id, subjName);
+    const subjectName = (row.subjects as unknown as { name: string } | null)?.name;
+    const className = (row.classes as unknown as { name: string } | null)?.name;
+    if (!subjectName || !className) continue;
+    const list = teachingByTeacher.get(row.teacher_id) ?? [];
+    list.push({ className, subjectName });
+    teachingByTeacher.set(row.teacher_id, list);
   }
   const countBy = (rows: { teacher_id: string | null }[] | null | undefined) => {
     const m = new Map<string, number>();
@@ -61,14 +64,18 @@ export async function listTeachersWithStats() {
   const materialCount = countBy(materials);
   const assignmentCount = countBy(assignments);
 
-  return (teachers ?? []).map((t) => ({
-    id: t.id,
-    name: t.full_name,
-    nip: t.nip as string | null,
-    subject: subjectByTeacher.get(t.id) ?? "-",
-    materials: materialCount.get(t.id) ?? 0,
-    quizzes: assignmentCount.get(t.id) ?? 0,
-  }));
+  return (teachers ?? []).map((t) => {
+    const teaching = teachingByTeacher.get(t.id) ?? [];
+    return {
+      id: t.id,
+      name: t.full_name,
+      nip: t.nip as string | null,
+      subject: teaching[0]?.subjectName ?? "-",
+      teaching,
+      materials: materialCount.get(t.id) ?? 0,
+      quizzes: assignmentCount.get(t.id) ?? 0,
+    };
+  });
 }
 
 export async function getPrincipal() {
@@ -79,6 +86,21 @@ export async function getPrincipal() {
     .eq("role", "principal")
     .maybeSingle();
   return data;
+}
+
+export async function listAllUsersForReset() {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, full_name, role, nisn, nip")
+    .order("full_name");
+
+  return (data ?? []).map((p) => ({
+    id: p.id,
+    name: p.full_name,
+    role: p.role as string,
+    identifier: (p.nisn ?? p.nip) as string | null,
+  }));
 }
 
 export async function countUsersByRole() {
