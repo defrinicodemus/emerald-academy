@@ -7,7 +7,7 @@ export default async function SubjectsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const data = await getSubjectsExplorerData(user.classId ?? null);
+  const data = await getSubjectsExplorerData(user.classId ?? null, user.id);
 
   return <SubjectsExplorer {...data} />;
 }

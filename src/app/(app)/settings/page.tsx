@@ -1,14 +1,12 @@
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Database, KeyRound, School } from "lucide-react";
 import { getSchool } from "@/lib/data/school";
 import { listAllUsersForReset } from "@/lib/data/people";
-import { saveSchoolSettings } from "../actions";
 import { ResetPasswordPanel } from "./ResetPasswordPanel";
 import { LogoUploader } from "./LogoUploader";
+import { SchoolSettingsForm } from "./SchoolSettingsForm";
 
 export default async function SettingsPage() {
   const [school, users] = await Promise.all([getSchool(), listAllUsersForReset()]);
@@ -29,23 +27,11 @@ export default async function SettingsPage() {
           <div className="mt-4">
             <LogoUploader logoUrl={school?.logo_url ?? null} />
           </div>
-          <form action={saveSchoolSettings} className="mt-4 space-y-3">
-            <div>
-              <Label>Nama Sekolah</Label>
-              <Input name="name" className="mt-1" defaultValue={school?.name ?? ""} />
-            </div>
-            <div>
-              <Label>Alamat</Label>
-              <Input name="address" className="mt-1" defaultValue={school?.address ?? ""} />
-            </div>
-            <div>
-              <Label>No. Telepon</Label>
-              <Input name="phone" className="mt-1" defaultValue={school?.phone ?? ""} />
-            </div>
-            <Button type="submit" className="rounded-xl">
-              Simpan Perubahan
-            </Button>
-          </form>
+          <SchoolSettingsForm
+            name={school?.name ?? ""}
+            address={school?.address ?? ""}
+            phone={school?.phone ?? ""}
+          />
         </Card>
 
         <div className="space-y-6">

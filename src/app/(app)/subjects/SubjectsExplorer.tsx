@@ -1,12 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Video, BookOpen, Image as ImageIcon, ClipboardList, type LucideIcon } from "lucide-react";
-import type { ContentRow } from "@/lib/data/subjects";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  FileText,
+  Video,
+  BookOpen,
+  Image as ImageIcon,
+  ClipboardList,
+  Check,
+  type LucideIcon,
+} from "lucide-react";
+import type { ContentRow, MaterialContentRow } from "@/lib/data/subjects";
+import { markMaterialViewed } from "./actions";
 
 const KIND_ICON: Record<string, LucideIcon> = {
   pdf: FileText,
@@ -14,7 +30,12 @@ const KIND_ICON: Record<string, LucideIcon> = {
   text: BookOpen,
   image: ImageIcon,
 };
-const KIND_LABEL: Record<string, string> = { pdf: "PDF", video: "YouTube", text: "Teks", image: "Gambar" };
+const KIND_LABEL: Record<string, string> = {
+  pdf: "PDF",
+  video: "YouTube",
+  text: "Teks",
+  image: "Gambar",
+};
 
 interface SubjectRow {
   id: string;
@@ -30,7 +51,7 @@ export function SubjectsExplorer({
   assignmentsBySubject,
 }: {
   subjects: SubjectRow[];
-  materialsBySubject: Record<string, ContentRow[]>;
+  materialsBySubject: Record<string, MaterialContentRow[]>;
   assignmentsBySubject: Record<string, ContentRow[]>;
 }) {
   const [open, setOpen] = useState<string | null>(null);
@@ -61,29 +82,19 @@ export function SubjectsExplorer({
             </TabsTrigger>
           </TabsList>
           <TabsContent value="materi" className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {materials.map((m) => {
-              const Icon = KIND_ICON[m.kind] ?? FileText;
-              return (
-                <Card
-                  key={m.id}
-                  className="rounded-3xl border-0 p-5 shadow-soft transition hover:-translate-y-0.5 hover:shadow-glow"
-                >
-                  <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary-soft/60 text-primary">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div className="mt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    {KIND_LABEL[m.kind] ?? m.kind}
-                  </div>
-                  <div className="mt-1 font-semibold">{m.title}</div>
-                  <Button className="mt-4 w-full rounded-xl">Buka</Button>
-                </Card>
-              );
-            })}
-            {materials.length === 0 && <p className="text-sm text-muted-foreground">Belum ada materi.</p>}
+            {materials.map((m) => (
+              <MaterialCard key={m.id} material={m} />
+            ))}
+            {materials.length === 0 && (
+              <p className="text-sm text-muted-foreground">Belum ada materi.</p>
+            )}
           </TabsContent>
           <TabsContent value="tugas" className="mt-4 space-y-3">
             {assignments.map((a) => (
-              <Card key={a.id} className="flex flex-wrap items-center gap-4 rounded-3xl border-0 p-5 shadow-soft">
+              <Card
+                key={a.id}
+                className="flex flex-wrap items-center gap-4 rounded-3xl border-0 p-5 shadow-soft"
+              >
                 <div className="grid h-12 w-12 place-items-center rounded-2xl bg-secondary">
                   <ClipboardList className="h-5 w-5 text-primary" />
                 </div>
@@ -98,7 +109,9 @@ export function SubjectsExplorer({
                 </Button>
               </Card>
             ))}
-            {assignments.length === 0 && <p className="text-sm text-muted-foreground">Belum ada tugas.</p>}
+            {assignments.length === 0 && (
+              <p className="text-sm text-muted-foreground">Belum ada tugas.</p>
+            )}
           </TabsContent>
         </Tabs>
       </div>
@@ -107,7 +120,11 @@ export function SubjectsExplorer({
 
   return (
     <div className="space-y-6">
-      <PageHeader icon="📚" title="Mata Pelajaran" subtitle="Pilih pelajaran untuk melihat materi dan tugas" />
+      <PageHeader
+        icon="📚"
+        title="Mata Pelajaran"
+        subtitle="Pilih pelajaran untuk melihat materi dan tugas"
+      />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {subjects.map((s) => {
           const materialCount = materialsBySubject[s.id]?.length ?? 0;
@@ -120,7 +137,9 @@ export function SubjectsExplorer({
             >
               <div
                 className="grid h-16 w-16 place-items-center rounded-2xl text-4xl"
-                style={{ backgroundColor: `color-mix(in oklch, ${s.color ?? "oklch(0.7 0.1 150)"} 20%, white)` }}
+                style={{
+                  backgroundColor: `color-mix(in oklch, ${s.color ?? "oklch(0.7 0.1 150)"} 20%, white)`,
+                }}
               >
                 {s.emoji}
               </div>
@@ -137,4 +156,77 @@ export function SubjectsExplorer({
       </div>
     </div>
   );
+}
+
+function MaterialCard({ material: m }: { material: MaterialContentRow }) {
+  const [open, setOpen] = useState(false);
+  const [, startTransition] = useTransition();
+  const Icon = KIND_ICON[m.kind] ?? FileText;
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (next && !m.viewed) {
+      startTransition(() => {
+        markMaterialViewed(m.id);
+      });
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <Card className="rounded-3xl border-0 p-5 shadow-soft transition hover:-translate-y-0.5 hover:shadow-glow">
+        <div className="flex items-start justify-between">
+          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary-soft/60 text-primary">
+            <Icon className="h-5 w-5" />
+          </div>
+          {m.viewed && (
+            <span className="flex items-center gap-1 rounded-full bg-primary-soft/60 px-2 py-0.5 text-[10px] font-medium text-primary">
+              <Check className="h-3 w-3" /> Sudah Dilihat
+            </span>
+          )}
+        </div>
+        <div className="mt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          {KIND_LABEL[m.kind] ?? m.kind}
+        </div>
+        <div className="mt-1 font-semibold">{m.title}</div>
+        <DialogTrigger asChild>
+          <Button className="mt-4 w-full rounded-xl">Buka</Button>
+        </DialogTrigger>
+      </Card>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{m.title}</DialogTitle>
+        </DialogHeader>
+        <MaterialContentView material={m} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MaterialContentView({ material: m }: { material: MaterialContentRow }) {
+  if (m.kind === "text") {
+    return (
+      <p className="whitespace-pre-line rounded-xl bg-muted/40 p-4 text-sm">
+        {m.content || "Belum ada isi materi."}
+      </p>
+    );
+  }
+  if (m.kind === "image" && m.url) {
+    return <img src={m.url} alt={m.title} className="w-full rounded-xl object-cover" />;
+  }
+  if (m.kind === "video" && m.url) {
+    return (
+      <div className="aspect-video w-full overflow-hidden rounded-xl">
+        <iframe src={m.url} title={m.title} className="h-full w-full" allowFullScreen />
+      </div>
+    );
+  }
+  if (m.kind === "pdf" && m.url) {
+    return (
+      <div className="overflow-hidden rounded-xl border">
+        <iframe src={m.url} title={m.title} className="h-96 w-full" />
+      </div>
+    );
+  }
+  return <p className="text-sm text-muted-foreground">Konten belum tersedia.</p>;
 }

@@ -6,6 +6,7 @@ import { LogOut } from "lucide-react";
 import { getCurrentUser } from "@/lib/data/profile";
 import { logout } from "../actions";
 import { ChangePasswordDialog } from "./ChangePasswordDialog";
+import { EditProfileDialog } from "./EditProfileDialog";
 
 export default async function ProfilePage() {
   const user = await getCurrentUser();
@@ -40,15 +41,11 @@ export default async function ProfilePage() {
         <h3 className="font-display text-lg font-bold">Pengaturan Akun</h3>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <ChangePasswordDialog />
-          <Button variant="outline" className="h-12 justify-start rounded-xl">
-            Notifikasi
-          </Button>
-          <Button variant="outline" className="h-12 justify-start rounded-xl">
-            Bahasa
-          </Button>
-          <Button variant="outline" className="h-12 justify-start rounded-xl">
-            Bantuan
-          </Button>
+          <EditProfileDialog
+            name={user.name}
+            avatar={user.avatar ?? null}
+            isAdmin={user.role === "admin"}
+          />
         </div>
       </Card>
     </div>

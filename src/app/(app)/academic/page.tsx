@@ -3,6 +3,7 @@ import { getAcademicStructure } from "@/lib/data/academic";
 import { ClassesManager } from "./ClassesManager";
 import { SubjectsManager } from "./SubjectsManager";
 import { YearsManager } from "./YearsManager";
+import { PromoteClassesPanel } from "./PromoteClassesPanel";
 
 export default async function AcademicPage() {
   const { classes, subjects, years } = await getAcademicStructure();
@@ -19,6 +20,7 @@ export default async function AcademicPage() {
         <SubjectsManager subjects={subjects} />
       </div>
       <YearsManager years={years} />
+      <PromoteClassesPanel classes={classes} years={years} />
     </div>
   );
 }

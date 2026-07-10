@@ -43,8 +43,13 @@ export function YearsManager({ years }: { years: YearRow[] }) {
 
   function handleSubmit(formData: FormData) {
     startTransition(async () => {
-      await createAcademicYear(formData);
-      setOpen(false);
+      const result = await createAcademicYear(formData);
+      if (result.ok) {
+        toast.success(result.message);
+        setOpen(false);
+      } else {
+        toast.error(result.message);
+      }
     });
   }
 
@@ -53,7 +58,9 @@ export function YearsManager({ years }: { years: YearRow[] }) {
     startTransition(async () => {
       const formData = new FormData();
       formData.set("id", id);
-      await setActiveAcademicYear(formData);
+      const result = await setActiveAcademicYear(formData);
+      if (result.ok) toast.success(result.message);
+      else toast.error(result.message);
       setActivatingId(null);
     });
   }

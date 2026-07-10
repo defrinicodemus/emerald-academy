@@ -17,12 +17,10 @@ import {
 import {
   LayoutDashboard,
   BookOpen,
-  Gift,
   User,
   Users,
   GraduationCap,
   ClipboardList,
-  Award,
   Settings,
   Building2,
   BarChart3,
@@ -30,25 +28,30 @@ import {
   LogOut,
   Sparkles,
   Layers,
+  Compass,
+  CalendarCheck,
+  NotebookText,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth, type Role } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 
-const NAV: Record<Role, { title: string; url: string; icon: LucideIcon }[]> = {
+export const NAV: Record<Role, { title: string; url: string; icon: LucideIcon }[]> = {
   student: [
     { title: "Beranda", url: "/dashboard", icon: LayoutDashboard },
     { title: "Mata Pelajaran", url: "/subjects", icon: BookOpen },
+    { title: "Presensi Saya", url: "/my-attendance", icon: CalendarCheck },
     { title: "Rapor & Nilai", url: "/grades", icon: BarChart3 },
-    { title: "Toko Bintang", url: "/rewards", icon: Gift },
     { title: "Profil", url: "/profile", icon: User },
   ],
   teacher: [
     { title: "Beranda", url: "/dashboard", icon: LayoutDashboard },
-    { title: "Siswa Saya", url: "/students", icon: Users },
-    { title: "Materi Ajar", url: "/materials", icon: BookOpen },
-    { title: "Penilaian", url: "/assessments", icon: ClipboardList },
-    { title: "Gamifikasi", url: "/gamification", icon: Award },
+    { title: "Kelola Kurikulum", url: "/curriculum", icon: Compass },
+    { title: "Kelola Siswa & Kelas", url: "/roster", icon: Users },
+    { title: "Kelola Pembelajaran", url: "/classroom", icon: BookOpen },
+    { title: "Ruang Periksa", url: "/assessments", icon: ClipboardList },
+    { title: "Presensi & Jurnal", url: "/attendance", icon: CalendarCheck },
+    { title: "Buku Nilai", url: "/gradebook", icon: NotebookText },
     { title: "Profil", url: "/profile", icon: User },
   ],
   principal: [
@@ -70,7 +73,13 @@ const NAV: Record<Role, { title: string; url: string; icon: LucideIcon }[]> = {
   ],
 };
 
-export function AppSidebar() {
+export function AppSidebar({
+  schoolName,
+  logoUrl,
+}: {
+  schoolName?: string | null;
+  logoUrl?: string | null;
+}) {
   const { user, logout } = useAuth();
   const path = usePathname();
   if (!user) return null;
@@ -80,14 +89,21 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
         <Link href="/dashboard" className="flex items-center gap-2 px-2 py-3">
-          <div className="grid h-10 w-10 place-items-center rounded-2xl bg-sidebar-primary text-sidebar-primary-foreground shadow-soft">
-            <Sparkles className="h-5 w-5" />
+          <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-2xl bg-sidebar-primary text-sidebar-primary-foreground shadow-soft">
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={schoolName ?? "Logo sekolah"}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <Sparkles className="h-5 w-5" />
+            )}
           </div>
           <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-            <div className="font-display text-base font-bold leading-tight text-sidebar-foreground">
-              SD Inpres
+            <div className="truncate font-display text-base font-bold leading-tight text-sidebar-foreground">
+              {schoolName ?? "SD Inpres Nggodimeda"}
             </div>
-            <div className="truncate text-xs text-sidebar-foreground/70">Nggodimeda</div>
           </div>
         </Link>
       </SidebarHeader>
@@ -137,7 +153,7 @@ export function AppSidebar() {
           </Button>
         </div>
         <div className="px-3 pb-3 text-[10px] text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden">
-          SD Inpres Nggodimeda
+          {schoolName ?? "SD Inpres Nggodimeda"}
         </div>
       </SidebarFooter>
     </Sidebar>

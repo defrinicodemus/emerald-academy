@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Megaphone, Star, BookOpen, ArrowRight, Sparkles } from "lucide-react";
+import { Megaphone, BookOpen, ArrowRight, Sparkles } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { getStudentDashboardData } from "@/lib/data/dashboard";
 
@@ -35,26 +35,20 @@ export function StudentDashboard({ data }: { data: Data }) {
                   Mulai Belajar <ArrowRight className="ml-1 h-4 w-4" />
                 </Link>
               </Button>
-              <Button asChild size="lg" variant="ghost" className="rounded-xl text-primary-foreground hover:bg-white/15">
-                <Link href="/rewards">Toko Bintang</Link>
-              </Button>
             </div>
-          </div>
-          <div className="rounded-3xl bg-white/15 px-6 py-5 text-center backdrop-blur">
-            <div className="flex items-center justify-center gap-2 text-4xl font-bold">
-              <Star className="h-7 w-7 fill-star text-star" /> {data.stars}
-            </div>
-            <div className="mt-1 text-xs uppercase tracking-wider opacity-90">Bintang Kamu</div>
           </div>
         </div>
       </Card>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <StatCard label="Tugas Aktif" value={String(data.assignments.length)} emoji="📝" />
         <StatCard label="Materi Baru" value={String(data.newMaterialsCount)} emoji="📚" />
-        <StatCard label="Lencana" value={`${data.badgesEarned}/${data.badgesTotal}`} emoji="🏅" />
-        <StatCard label="Rata-rata" value={data.average != null ? String(data.average) : "-"} emoji="📈" />
+        <StatCard
+          label="Rata-rata"
+          value={data.average != null ? String(data.average) : "-"}
+          emoji="📈"
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -95,7 +89,11 @@ export function StudentDashboard({ data }: { data: Data }) {
             {data.announcements.map((a) => (
               <div key={a.id} className="rounded-2xl bg-primary-soft/30 p-4">
                 <div className="text-xs font-medium text-primary">
-                  {new Date(a.created_at).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long" })}
+                  {new Date(a.created_at).toLocaleDateString("id-ID", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                  })}
                 </div>
                 <div className="mt-1 font-semibold">{a.title}</div>
                 <p className="mt-1 text-xs text-muted-foreground">{a.body}</p>
@@ -115,7 +113,9 @@ export function StudentDashboard({ data }: { data: Data }) {
           <div className="space-y-3">
             {data.assignments.map((a) => (
               <div key={a.id} className="flex flex-wrap items-center gap-4 rounded-2xl border p-4">
-                <div className="grid h-12 w-12 place-items-center rounded-xl bg-secondary text-xl">📌</div>
+                <div className="grid h-12 w-12 place-items-center rounded-xl bg-secondary text-xl">
+                  📌
+                </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-medium text-primary">{a.subject}</div>
                   <div className="font-semibold">{a.title}</div>
@@ -144,8 +144,16 @@ export function StudentDashboard({ data }: { data: Data }) {
                 </defs>
                 <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
                 <YAxis hide domain={[60, 100]} />
-                <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid var(--color-border)" }} />
-                <Area type="monotone" dataKey="nilai" stroke="var(--color-primary)" strokeWidth={3} fill="url(#g1)" />
+                <Tooltip
+                  contentStyle={{ borderRadius: 12, border: "1px solid var(--color-border)" }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="nilai"
+                  stroke="var(--color-primary)"
+                  strokeWidth={3}
+                  fill="url(#g1)"
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -172,7 +180,9 @@ function StatCard({ label, value, emoji }: { label: string; value: string; emoji
           <div className="text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
           <div className="mt-1 font-display text-3xl font-bold">{value}</div>
         </div>
-        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary-soft/50 text-2xl">{emoji}</div>
+        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary-soft/50 text-2xl">
+          {emoji}
+        </div>
       </div>
     </Card>
   );

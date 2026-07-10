@@ -90,9 +90,13 @@ export function SubjectsManager({ subjects }: { subjects: SubjectRow[] }) {
 
   function handleSubmit(formData: FormData) {
     startTransition(async () => {
-      if (editing) await updateSubject(formData);
-      else await createSubject(formData);
-      setOpen(false);
+      const result = editing ? await updateSubject(formData) : await createSubject(formData);
+      if (result.ok) {
+        toast.success(result.message);
+        setOpen(false);
+      } else {
+        toast.error(result.message);
+      }
     });
   }
 

@@ -1,0 +1,35 @@
+"use client";
+
+import { useRef, useTransition } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { publishAnnouncement } from "../actions";
+
+export function PublishAnnouncementForm() {
+  const formRef = useRef<HTMLFormElement>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function handleSubmit(formData: FormData) {
+    startTransition(async () => {
+      const result = await publishAnnouncement(formData);
+      if (result.ok) {
+        toast.success(result.message);
+        formRef.current?.reset();
+      } else {
+        toast.error(result.message);
+      }
+    });
+  }
+
+  return (
+    <form ref={formRef} action={handleSubmit} className="mt-4 space-y-3">
+      <Input name="title" placeholder="Judul pengumuman" required />
+      <Textarea name="body" placeholder="Isi pengumuman..." rows={6} required />
+      <Button type="submit" className="w-full rounded-xl" disabled={isPending}>
+        {isPending ? "Menerbitkan..." : "Terbitkan"}
+      </Button>
+    </form>
+  );
+}

@@ -44,9 +44,13 @@ export function ClassesManager({ classes, years }: { classes: ClassRow[]; years:
 
   function handleSubmit(formData: FormData) {
     startTransition(async () => {
-      if (editing) await updateClass(formData);
-      else await createClass(formData);
-      setOpen(false);
+      const result = editing ? await updateClass(formData) : await createClass(formData);
+      if (result.ok) {
+        toast.success(result.message);
+        setOpen(false);
+      } else {
+        toast.error(result.message);
+      }
     });
   }
 

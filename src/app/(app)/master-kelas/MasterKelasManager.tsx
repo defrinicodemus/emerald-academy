@@ -106,8 +106,9 @@ export function MasterKelasManager({
       formData.set("class_id", classId);
       formData.set("subject_id", subjectId);
       if (teacherId !== NONE) formData.set("teacher_id", teacherId);
-      await setClassSubjectTeacher(formData);
-      toast.success("Penugasan guru disimpan.");
+      const result = await setClassSubjectTeacher(formData);
+      if (result.ok) toast.success(result.message);
+      else toast.error(result.message);
     });
   }
 
@@ -117,8 +118,9 @@ export function MasterKelasManager({
       const formData = new FormData();
       formData.set("student_id", studentId);
       formData.set("class_id", classId);
-      await assignStudentToClass(formData);
-      toast.success("Siswa ditambahkan ke kelas.");
+      const result = await assignStudentToClass(formData);
+      if (result.ok) toast.success(result.message);
+      else toast.error(result.message);
     });
   }
 
@@ -126,8 +128,9 @@ export function MasterKelasManager({
     startTransition(async () => {
       const formData = new FormData();
       formData.set("student_id", studentId);
-      await assignStudentToClass(formData);
-      toast.success("Siswa dikeluarkan dari kelas.");
+      const result = await assignStudentToClass(formData);
+      if (result.ok) toast.success(result.message);
+      else toast.error(result.message);
     });
   }
 

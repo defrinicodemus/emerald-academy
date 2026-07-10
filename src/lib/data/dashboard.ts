@@ -7,11 +7,8 @@ export async function getStudentDashboardData(studentId: string, classId: string
   const [
     { data: announcements },
     { data: assignmentRows },
-    { data: starTotal },
-    { data: badges },
     { data: grades },
     { data: subjects },
-    { data: totalBadges },
     { data: materialsThisWeek },
     { data: klass },
   ] = await Promise.all([
@@ -29,12 +26,6 @@ export async function getStudentDashboardData(studentId: string, classId: string
           .limit(5)
       : Promise.resolve({ data: [] as never[] }),
     supabase
-      .from("student_star_totals")
-      .select("total_stars")
-      .eq("student_id", studentId)
-      .maybeSingle(),
-    supabase.from("student_badges").select("badge_id").eq("student_id", studentId),
-    supabase
       .from("grades")
       .select("period_month, score")
       .eq("student_id", studentId)
@@ -43,7 +34,6 @@ export async function getStudentDashboardData(studentId: string, classId: string
       .from("subjects")
       .select("id, code, name, emoji, color, min_grade, max_grade")
       .order("name"),
-    supabase.from("badges").select("id"),
     classId
       ? supabase
           .from("materials")
@@ -88,9 +78,6 @@ export async function getStudentDashboardData(studentId: string, classId: string
   return {
     announcements: announcements ?? [],
     assignments,
-    stars: starTotal?.total_stars ?? 0,
-    badgesEarned: badges?.length ?? 0,
-    badgesTotal: totalBadges?.length ?? 0,
     average,
     trend,
     subjects: visibleSubjects,
