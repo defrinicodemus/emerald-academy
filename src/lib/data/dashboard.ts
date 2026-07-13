@@ -7,7 +7,6 @@ export async function getStudentDashboardData(studentId: string, classId: string
   const [
     { data: announcements },
     { data: assignmentRows },
-    { data: grades },
     { data: subjects },
     { data: materials },
     { data: klass },
@@ -25,11 +24,6 @@ export async function getStudentDashboardData(studentId: string, classId: string
           .eq("is_published", true)
           .order("due_at")
       : Promise.resolve({ data: [] as never[] }),
-    supabase
-      .from("grades")
-      .select("period_month, score")
-      .eq("student_id", studentId)
-      .order("period_month"),
     supabase
       .from("subjects")
       .select("id, code, name, emoji, color, min_grade, max_grade")
@@ -110,35 +104,32 @@ export async function getStudentDashboardData(studentId: string, classId: string
     kuisCount: kuisCountBySubject.get(s.id) ?? 0,
   }));
 
-  const byMonth = new Map<string, { sum: number; count: number }>();
-  for (const g of grades ?? []) {
-    const acc = byMonth.get(g.period_month) ?? { sum: 0, count: 0 };
-    acc.sum += Number(g.score);
-    acc.count += 1;
-    byMonth.set(g.period_month, acc);
-  }
-  const trend = [...byMonth.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([month, { sum, count }]) => ({
-      name: new Date(month).toLocaleDateString("id-ID", { month: "short" }),
-      nilai: Math.round(sum / count),
+  const activeTasks = (assignmentRows ?? [])
+    .filter((a) => isPending(a.id))
+    .sort((a, b) => {
+      if (!a.due_at && !b.due_at) return 0;
+      if (!a.due_at) return 1;
+      if (!b.due_at) return -1;
+      return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
+    })
+    .slice(0, 3)
+    .map((a) => ({
+      id: a.id,
+      kind: a.kind,
+      title: a.title,
+      subject: (a.subjects as unknown as { name: string } | null)?.name ?? "",
+      due: a.due_at ? new Date(a.due_at).toLocaleDateString("id-ID") : "-",
     }));
-  const average = trend.length
-    ? Math.round(trend.reduce((s, t) => s + t.nilai, 0) / trend.length)
-    : null;
 
-  const assignments = (assignmentRows ?? []).slice(0, 5).map((a) => ({
-    id: a.id,
-    title: a.title,
-    subject: (a.subjects as unknown as { name: string } | null)?.name ?? "",
-    due: a.due_at ? new Date(a.due_at).toLocaleDateString("id-ID") : "-",
-  }));
+  const hasAnyAssignments = (assignmentRows ?? []).length > 0;
+  const totalMaterialsCount = (materials ?? []).length;
+  const totalTugasCount = (assignmentRows ?? []).filter((a) => a.kind !== "quiz").length;
+  const totalKuisCount = (assignmentRows ?? []).filter((a) => a.kind === "quiz").length;
 
   return {
     announcements: announcements ?? [],
-    assignments,
-    average,
-    trend,
+    activeTasks,
+    hasAnyAssignments,
     subjects: subjectsWithCounts,
     newMaterialsCount,
     pendingTugasCount,
@@ -146,6 +137,9 @@ export async function getStudentDashboardData(studentId: string, classId: string
     materialsStudiedCount: materialsStudiedCount ?? 0,
     tugasCompletedCount,
     kuisCompletedCount,
+    totalMaterialsCount,
+    totalTugasCount,
+    totalKuisCount,
   };
 }
 

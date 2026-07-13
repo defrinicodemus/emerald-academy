@@ -3,14 +3,31 @@
 import { useMemo } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Megaphone, BookOpen, ArrowRight, Sparkles, ChevronRight } from "lucide-react";
-import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Megaphone, BookOpen, ArrowRight, ChevronRight } from "lucide-react";
 import type { getStudentDashboardData } from "@/lib/data/dashboard";
 
 type Data = Awaited<ReturnType<typeof getStudentDashboardData>>;
+
+const LEARNING_TYPE_STYLES = {
+  mapel: { badge: "bg-teal-100 text-teal-700" },
+  materi: {
+    soft: "bg-blue-50 text-blue-700",
+    badge: "bg-blue-100 text-blue-700",
+    bar: "bg-blue-500",
+  },
+  tugas: {
+    soft: "bg-amber-50 text-amber-700",
+    badge: "bg-amber-100 text-amber-700",
+    bar: "bg-amber-500",
+  },
+  kuis: {
+    soft: "bg-purple-50 text-purple-700",
+    badge: "bg-purple-100 text-purple-700",
+    bar: "bg-purple-500",
+  },
+};
 
 export function StudentDashboard({ data }: { data: Data }) {
   const { user } = useAuth();
@@ -24,17 +41,8 @@ export function StudentDashboard({ data }: { data: Data }) {
     year: "numeric",
   });
 
-  const activityParts: string[] = [];
-  if (data.pendingTugasCount > 0) {
-    activityParts.push(`${data.pendingTugasCount} tugas perlu diselesaikan`);
-  }
-  if (data.pendingKuisCount > 0) {
-    activityParts.push(`${data.pendingKuisCount} kuis menunggu dikerjakan`);
-  }
-  if (data.newMaterialsCount > 0) {
-    activityParts.push(`${data.newMaterialsCount} materi baru tersedia`);
-  }
-  const hasActivity = activityParts.length > 0;
+  const hasActivity =
+    data.pendingTugasCount > 0 || data.pendingKuisCount > 0 || data.newMaterialsCount > 0;
 
   return (
     <div className="space-y-6">
@@ -49,9 +57,6 @@ export function StudentDashboard({ data }: { data: Data }) {
             {hasActivity ? (
               <>
                 <p className="mt-2 text-sm opacity-90">Selamat belajar hari ini.</p>
-                <p className="mt-1 max-w-md text-sm opacity-90">
-                  Kamu memiliki {activityParts.join(", ")}.
-                </p>
                 <p className="mt-1 max-w-md text-sm opacity-90">
                   Ayo lanjutkan belajar dan capai targetmu hari ini!
                 </p>
@@ -83,9 +88,24 @@ export function StudentDashboard({ data }: { data: Data }) {
 
       {/* Quick Info */}
       <div className="flex gap-3 overflow-x-auto pb-1 md:grid md:grid-cols-3 md:overflow-visible md:pb-0">
-        <QuickInfoCard emoji="📚" value={data.materialsStudiedCount} label="Materi Dipelajari" />
-        <QuickInfoCard emoji="📝" value={data.tugasCompletedCount} label="Tugas Diselesaikan" />
-        <QuickInfoCard emoji="❓" value={data.kuisCompletedCount} label="Kuis Diselesaikan" />
+        <QuickInfoCard
+          emoji="📖"
+          value={data.subjects.length}
+          label="Mata Pelajaran"
+          badgeClass={LEARNING_TYPE_STYLES.mapel.badge}
+        />
+        <QuickInfoCard
+          emoji="📝"
+          value={data.pendingTugasCount}
+          label="Tugas Aktif"
+          badgeClass={LEARNING_TYPE_STYLES.tugas.badge}
+        />
+        <QuickInfoCard
+          emoji="❓"
+          value={data.pendingKuisCount}
+          label="Kuis Aktif"
+          badgeClass={LEARNING_TYPE_STYLES.kuis.badge}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -186,7 +206,6 @@ export function StudentDashboard({ data }: { data: Data }) {
                   })}
                 </div>
                 <div className="mt-1 font-semibold">{a.title}</div>
-                <p className="mt-1 text-xs text-muted-foreground">{a.body}</p>
               </div>
             ))}
           </div>
@@ -198,71 +217,140 @@ export function StudentDashboard({ data }: { data: Data }) {
         </Card>
       </div>
 
-      {/* Assignments + Trend */}
+      {/* Active tasks + Learning activity */}
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="rounded-3xl border-0 p-6 shadow-soft lg:col-span-2">
           <div className="mb-4 flex items-center gap-2">
             <BookOpen className="h-5 w-5 text-primary" />
-            <h2 className="font-display text-xl font-bold">Tugas Aktif</h2>
+            <h2 className="font-display text-xl font-bold">Tugas dan Kuis Aktif</h2>
           </div>
           <div className="space-y-3">
-            {data.assignments.map((a) => (
+            {data.activeTasks.map((a) => (
               <div key={a.id} className="flex flex-wrap items-center gap-4 rounded-2xl border p-4">
                 <div className="grid h-12 w-12 place-items-center rounded-xl bg-secondary text-xl">
-                  📌
+                  {a.kind === "quiz" ? "❓" : "📌"}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs font-medium text-primary">{a.subject}</div>
+                  <div className="text-xs font-medium text-primary">
+                    {a.kind === "quiz" ? "Kuis" : "Tugas"} {a.subject}
+                  </div>
                   <div className="font-semibold">{a.title}</div>
                   <div className="text-xs text-muted-foreground">Tenggat: {a.due}</div>
                 </div>
                 <Button className="rounded-xl">Mulai Kerjakan</Button>
               </div>
             ))}
-            {data.assignments.length === 0 && (
-              <p className="text-sm text-muted-foreground">Tidak ada tugas aktif saat ini.</p>
+            {data.activeTasks.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                {data.hasAnyAssignments
+                  ? "Semua tugas dan kuis telah dikerjakan."
+                  : "Belum ada tugas dan kuis."}
+              </p>
             )}
           </div>
         </Card>
 
         <Card className="rounded-3xl border-0 p-6 shadow-soft">
-          <h2 className="font-display text-xl font-bold">Progres Nilaiku</h2>
-          <div className="mt-1 text-xs text-muted-foreground">Rata-rata bulanan</div>
-          <div className="mt-4 h-44">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data.trend}>
-                <defs>
-                  <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
-                <YAxis hide domain={[60, 100]} />
-                <Tooltip
-                  contentStyle={{ borderRadius: 12, border: "1px solid var(--color-border)" }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="nilai"
-                  stroke="var(--color-primary)"
-                  strokeWidth={3}
-                  fill="url(#g1)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+          <h2 className="font-display text-xl font-bold">Aktivitas Belajarku</h2>
+          <div className="mt-4 space-y-3">
+            <ActivityCard
+              emoji="📚"
+              label="Materi"
+              value={data.materialsStudiedCount}
+              total={data.totalMaterialsCount}
+              colorClass={LEARNING_TYPE_STYLES.materi.soft}
+              barClass={LEARNING_TYPE_STYLES.materi.bar}
+            />
+            <ActivityCard
+              emoji="📝"
+              label="Tugas"
+              value={data.tugasCompletedCount}
+              total={data.totalTugasCount}
+              colorClass={LEARNING_TYPE_STYLES.tugas.soft}
+              barClass={LEARNING_TYPE_STYLES.tugas.bar}
+            />
+            <ActivityCard
+              emoji="❓"
+              label="Kuis"
+              value={data.kuisCompletedCount}
+              total={data.totalKuisCount}
+              colorClass={LEARNING_TYPE_STYLES.kuis.soft}
+              barClass={LEARNING_TYPE_STYLES.kuis.bar}
+            />
           </div>
-          <div className="mt-2 flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Target semester</span>
-            <span className="font-semibold">85</span>
-          </div>
-          <Progress value={data.average ?? 0} className="mt-2 h-2" />
-          <div className="mt-3 flex items-center gap-2 rounded-2xl bg-accent/40 p-3 text-xs">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <span>Kerja bagus! Terus tingkatkan belajarmu.</span>
+          <div className="mt-4 border-t pt-4 text-sm">
+            <ActivityMessage
+              materiRemaining={data.totalMaterialsCount - data.materialsStudiedCount}
+              tugasRemaining={data.totalTugasCount - data.tugasCompletedCount}
+              kuisRemaining={data.totalKuisCount - data.kuisCompletedCount}
+            />
           </div>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function ActivityCard({
+  emoji,
+  label,
+  value,
+  total,
+  colorClass,
+  barClass,
+}: {
+  emoji: string;
+  label: string;
+  value: number;
+  total: number;
+  colorClass: string;
+  barClass: string;
+}) {
+  const percent = total > 0 ? Math.round((value / total) * 100) : 0;
+  return (
+    <div className={`rounded-2xl p-3.5 ${colorClass}`}>
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-2 text-sm font-medium">
+          <span className="text-lg">{emoji}</span> {label}
+        </span>
+        <span className="font-display text-lg font-bold">
+          {value} / {total}
+        </span>
+      </div>
+      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/60">
+        <div className={`h-full rounded-full ${barClass}`} style={{ width: `${percent}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function ActivityMessage({
+  materiRemaining,
+  tugasRemaining,
+  kuisRemaining,
+}: {
+  materiRemaining: number;
+  tugasRemaining: number;
+  kuisRemaining: number;
+}) {
+  const lines: string[] = [];
+  if (tugasRemaining > 0) {
+    lines.push(`📝 Tinggal ${tugasRemaining} tugas lagi untuk diselesaikan.`);
+  }
+  if (kuisRemaining > 0) {
+    lines.push(`❓ Tinggal ${kuisRemaining} kuis lagi untuk dikerjakan.`);
+  }
+  if (materiRemaining > 0) {
+    lines.push(`📚 Tinggal ${materiRemaining} materi lagi untuk dibuka.`);
+  }
+  if (lines.length === 0) {
+    return <p>🎉 Semua aktivitas belajar telah selesai.</p>;
+  }
+  return (
+    <div className="space-y-1.5">
+      {lines.map((line) => (
+        <p key={line}>{line}</p>
+      ))}
     </div>
   );
 }
@@ -275,13 +363,29 @@ function subjectCountLabel(s: { materialCount: number; tugasCount: number; kuisC
   return parts.length > 0 ? parts.join(" • ") : null;
 }
 
-function QuickInfoCard({ emoji, value, label }: { emoji: string; value: number; label: string }) {
+function QuickInfoCard({
+  emoji,
+  value,
+  label,
+  badgeClass,
+}: {
+  emoji: string;
+  value: number;
+  label: string;
+  badgeClass: string;
+}) {
   return (
     <Card className="aspect-square w-32 shrink-0 rounded-2xl border-0 p-4 shadow-soft md:aspect-auto md:w-auto md:p-5">
-      <div className="flex h-full flex-col items-center justify-center gap-1 text-center md:items-start md:text-left">
-        <div className="text-2xl">{emoji}</div>
+      <div className="flex h-full flex-col justify-center gap-2">
+        <div className="flex items-center gap-2">
+          <div
+            className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-base ${badgeClass}`}
+          >
+            {emoji}
+          </div>
+          <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        </div>
         <div className="font-display text-2xl font-bold">{value}</div>
-        <div className="text-xs text-muted-foreground">{label}</div>
       </div>
     </Card>
   );
