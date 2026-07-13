@@ -77,6 +77,7 @@ export async function publishAnnouncement(
 ): Promise<{ ok: boolean; message: string }> {
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
+  const category = String(formData.get("category") ?? "").trim() || "Umum";
   if (!title || !body) return { ok: false, message: "Judul dan isi pengumuman wajib diisi." };
 
   const currentUser = await getCurrentUser();
@@ -96,6 +97,7 @@ export async function publishAnnouncement(
     author_id: user.id,
     title,
     body,
+    category,
   });
   if (error) return { ok: false, message: error.message };
 

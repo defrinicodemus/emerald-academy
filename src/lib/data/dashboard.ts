@@ -9,7 +9,7 @@ export async function getStudentDashboardData(studentId: string, classId: string
     { data: assignmentRows },
     { data: grades },
     { data: subjects },
-    { data: materialsThisWeek },
+    { data: materials },
     { data: klass },
   ] = await Promise.all([
     supabase
@@ -20,10 +20,10 @@ export async function getStudentDashboardData(studentId: string, classId: string
     classId
       ? supabase
           .from("assignments")
-          .select("id, title, due_at, subjects(name)")
+          .select("id, title, kind, subject_id, due_at, is_published, subjects(name)")
           .eq("class_id", classId)
+          .eq("is_published", true)
           .order("due_at")
-          .limit(5)
       : Promise.resolve({ data: [] as never[] }),
     supabase
       .from("grades")
@@ -35,21 +35,80 @@ export async function getStudentDashboardData(studentId: string, classId: string
       .select("id, code, name, emoji, color, min_grade, max_grade")
       .order("name"),
     classId
-      ? supabase
-          .from("materials")
-          .select("id")
-          .eq("class_id", classId)
-          .gte("created_at", new Date(Date.now() - 7 * 86400000).toISOString())
+      ? supabase.from("materials").select("id, subject_id, created_at").eq("class_id", classId)
       : Promise.resolve({ data: [] as never[] }),
     classId
       ? supabase.from("classes").select("grade_level").eq("id", classId).single()
       : Promise.resolve({ data: null }),
   ]);
 
+  const assignmentIds = (assignmentRows ?? []).map((a) => a.id);
+  const [{ data: submissions }, { count: materialsStudiedCount }, { data: completedSubmissions }] =
+    await Promise.all([
+      assignmentIds.length > 0
+        ? supabase
+            .from("submissions")
+            .select("assignment_id, status")
+            .eq("student_id", studentId)
+            .in("assignment_id", assignmentIds)
+        : Promise.resolve({ data: [] as { assignment_id: string; status: string }[] }),
+      supabase
+        .from("material_views")
+        .select("id", { count: "exact", head: true })
+        .eq("student_id", studentId),
+      supabase
+        .from("submissions")
+        .select("assignment_id, assignments(kind)")
+        .eq("student_id", studentId)
+        .in("status", ["submitted", "graded"]),
+    ]);
+
+  const statusByAssignment = new Map((submissions ?? []).map((s) => [s.assignment_id, s.status]));
+  const isPending = (assignmentId: string) => {
+    const status = statusByAssignment.get(assignmentId);
+    return status == null || status === "belum" || status === "dikerjakan";
+  };
+  const pendingTugasCount = (assignmentRows ?? []).filter(
+    (a) => a.kind !== "quiz" && isPending(a.id),
+  ).length;
+  const pendingKuisCount = (assignmentRows ?? []).filter(
+    (a) => a.kind === "quiz" && isPending(a.id),
+  ).length;
+
+  let tugasCompletedCount = 0;
+  let kuisCompletedCount = 0;
+  for (const s of completedSubmissions ?? []) {
+    const kind = (s.assignments as unknown as { kind: string } | null)?.kind;
+    if (kind === "quiz") kuisCompletedCount++;
+    else if (kind) tugasCompletedCount++;
+  }
+
   const gradeLevel = klass?.grade_level ?? null;
   const visibleSubjects = (subjects ?? []).filter((s) =>
     appliesToGrade(gradeLevel, s.min_grade, s.max_grade),
   );
+
+  const sevenDaysAgo = Date.now() - 7 * 86400000;
+  const newMaterialsCount = (materials ?? []).filter(
+    (m) => new Date(m.created_at).getTime() >= sevenDaysAgo,
+  ).length;
+
+  const materialCountBySubject = new Map<string, number>();
+  for (const m of materials ?? []) {
+    materialCountBySubject.set(m.subject_id, (materialCountBySubject.get(m.subject_id) ?? 0) + 1);
+  }
+  const tugasCountBySubject = new Map<string, number>();
+  const kuisCountBySubject = new Map<string, number>();
+  for (const a of assignmentRows ?? []) {
+    const map = a.kind === "quiz" ? kuisCountBySubject : tugasCountBySubject;
+    map.set(a.subject_id, (map.get(a.subject_id) ?? 0) + 1);
+  }
+  const subjectsWithCounts = visibleSubjects.map((s) => ({
+    ...s,
+    materialCount: materialCountBySubject.get(s.id) ?? 0,
+    tugasCount: tugasCountBySubject.get(s.id) ?? 0,
+    kuisCount: kuisCountBySubject.get(s.id) ?? 0,
+  }));
 
   const byMonth = new Map<string, { sum: number; count: number }>();
   for (const g of grades ?? []) {
@@ -68,7 +127,7 @@ export async function getStudentDashboardData(studentId: string, classId: string
     ? Math.round(trend.reduce((s, t) => s + t.nilai, 0) / trend.length)
     : null;
 
-  const assignments = (assignmentRows ?? []).map((a) => ({
+  const assignments = (assignmentRows ?? []).slice(0, 5).map((a) => ({
     id: a.id,
     title: a.title,
     subject: (a.subjects as unknown as { name: string } | null)?.name ?? "",
@@ -80,8 +139,13 @@ export async function getStudentDashboardData(studentId: string, classId: string
     assignments,
     average,
     trend,
-    subjects: visibleSubjects,
-    newMaterialsCount: materialsThisWeek?.length ?? 0,
+    subjects: subjectsWithCounts,
+    newMaterialsCount,
+    pendingTugasCount,
+    pendingKuisCount,
+    materialsStudiedCount: materialsStudiedCount ?? 0,
+    tugasCompletedCount,
+    kuisCompletedCount,
   };
 }
 

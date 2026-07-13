@@ -5,7 +5,16 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { publishAnnouncement } from "../actions";
+import { ANNOUNCEMENT_CATEGORIES } from "@/lib/announcement-categories";
 
 export function PublishAnnouncementForm() {
   const formRef = useRef<HTMLFormElement>(null);
@@ -25,6 +34,21 @@ export function PublishAnnouncementForm() {
 
   return (
     <form ref={formRef} action={handleSubmit} className="mt-4 space-y-3">
+      <div>
+        <Label>Kategori</Label>
+        <Select name="category" defaultValue="Umum">
+          <SelectTrigger className="mt-1 w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {ANNOUNCEMENT_CATEGORIES.map((c) => (
+              <SelectItem key={c} value={c}>
+                {c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <Input name="title" placeholder="Judul pengumuman" required />
       <Textarea name="body" placeholder="Isi pengumuman..." rows={6} required />
       <Button type="submit" className="w-full rounded-xl" disabled={isPending}>

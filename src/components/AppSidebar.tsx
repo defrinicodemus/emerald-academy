@@ -42,6 +42,7 @@ export const NAV: Record<Role, { title: string; url: string; icon: LucideIcon }[
     { title: "Mata Pelajaran", url: "/subjects", icon: BookOpen },
     { title: "Presensi Saya", url: "/my-attendance", icon: CalendarCheck },
     { title: "Rapor & Nilai", url: "/grades", icon: BarChart3 },
+    { title: "Pengumuman", url: "/announcements", icon: Bell },
     { title: "Profil", url: "/profile", icon: User },
   ],
   teacher: [
@@ -52,6 +53,7 @@ export const NAV: Record<Role, { title: string; url: string; icon: LucideIcon }[
     { title: "Ruang Periksa", url: "/assessments", icon: ClipboardList },
     { title: "Presensi & Jurnal", url: "/attendance", icon: CalendarCheck },
     { title: "Buku Nilai", url: "/gradebook", icon: NotebookText },
+    { title: "Pengumuman", url: "/announcements", icon: Bell },
     { title: "Profil", url: "/profile", icon: User },
   ],
   principal: [
@@ -60,6 +62,7 @@ export const NAV: Record<Role, { title: string; url: string; icon: LucideIcon }[
     { title: "Pantau Kelas", url: "/students", icon: Users },
     { title: "Kurikulum", url: "/materials", icon: BookOpen },
     { title: "Laporan Sekolah", url: "/grades", icon: BarChart3 },
+    { title: "Pengumuman", url: "/announcements", icon: Bell },
     { title: "Profil", url: "/profile", icon: User },
   ],
   admin: [
