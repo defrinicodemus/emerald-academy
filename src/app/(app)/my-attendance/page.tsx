@@ -15,7 +15,7 @@ export default async function MyAttendancePage() {
       <PageHeader
         icon="🗓️"
         title="Presensi Saya"
-        subtitle="Riwayat kehadiran kamu per mata pelajaran"
+        subtitle="Pantau tingkat kehadiran dan kedisiplinan belajarmu di sini. Pertahankan konsistensimu untuk hasil terbaik."
       />
       <MyAttendanceView subjects={subjects} />
     </div>

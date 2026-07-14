@@ -43,6 +43,24 @@ function formatDayName(iso: string) {
   });
 }
 
+function formatLastInput(iso: string | null): string {
+  if (!iso) return "Belum Melakukan Presensi.";
+  const d = new Date(iso);
+  const datePart = d.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Asia/Makassar",
+  });
+  const timePart = d.toLocaleTimeString("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Makassar",
+  });
+  return `Terakhir diperbarui: ${datePart} • ${timePart} WITA`;
+}
+
 export function AttendanceManager({
   combos,
   filledMeetingsByKey,
@@ -192,6 +210,14 @@ function MeetingForm({
 
   return (
     <>
+      <div className="rounded-2xl border border-dashed bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground sm:text-sm">
+        {data.lastInputAt ? (
+          <>🕒 {formatLastInput(data.lastInputAt)}</>
+        ) : (
+          <>Belum Melakukan Presensi.</>
+        )}
+      </div>
+
       <Card className="rounded-3xl border-0 p-6 shadow-soft">
         <h2 className="font-display text-xl font-bold">Presensi — Pertemuan {meetingNumber}</h2>
         {data.students.length === 0 ? (

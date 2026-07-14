@@ -88,7 +88,7 @@ export function AttendanceRecapDialog({
         {loading && <p className="mt-6 text-sm text-muted-foreground">Memuat rekap presensi...</p>}
 
         {!loading && data && (
-          <div className="mt-4 space-y-4">
+          <div className="mt-4 min-w-0 space-y-4">
             {data.meetingNumbers.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Belum ada pertemuan yang diisi presensinya.

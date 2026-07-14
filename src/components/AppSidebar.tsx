@@ -41,7 +41,7 @@ export const NAV: Record<Role, { title: string; url: string; icon: LucideIcon }[
     { title: "Beranda", url: "/dashboard", icon: LayoutDashboard },
     { title: "Mata Pelajaran", url: "/subjects", icon: BookOpen },
     { title: "Presensi Saya", url: "/my-attendance", icon: CalendarCheck },
-    { title: "Rapor & Nilai", url: "/grades", icon: BarChart3 },
+    { title: "Nilai Saya", url: "/grades", icon: BarChart3 },
     { title: "Pengumuman", url: "/announcements", icon: Bell },
     { title: "Profil", url: "/profile", icon: User },
   ],

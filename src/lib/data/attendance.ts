@@ -24,6 +24,7 @@ export interface MeetingData {
   notes: string;
   students: AttendanceStudentRow[];
   tpOptions: TpOption[];
+  lastInputAt: string | null;
 }
 
 export interface AttendanceRecapRow {
@@ -235,13 +236,15 @@ export async function getMeetingData(
   }
 
   const statusByStudent = new Map<string, AttendanceStatus>();
+  let lastInputAt: string | null = null;
   if (meeting) {
     const { data: records } = await supabase
       .from("attendance_records")
-      .select("student_id, status")
+      .select("student_id, status, updated_at")
       .eq("meeting_id", meeting.id);
     for (const r of records ?? []) {
       statusByStudent.set(r.student_id, r.status);
+      if (!lastInputAt || r.updated_at > lastInputAt) lastInputAt = r.updated_at;
     }
   }
 
@@ -261,5 +264,6 @@ export async function getMeetingData(
     notes: meeting?.notes ?? "",
     students: studentRows,
     tpOptions,
+    lastInputAt,
   };
 }

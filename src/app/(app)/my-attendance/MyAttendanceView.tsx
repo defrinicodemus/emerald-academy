@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Check, Calendar, Thermometer, X, type LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
@@ -21,9 +22,20 @@ const STATUS_LABEL: Record<AttendanceStatus, string> = {
 
 const STATUS_BADGE: Record<AttendanceStatus, string> = {
   hadir: "bg-emerald-100 text-emerald-700",
-  sakit: "bg-amber-100 text-amber-700",
-  izin: "bg-blue-100 text-blue-700",
+  izin: "bg-amber-100 text-amber-700",
+  sakit: "bg-blue-100 text-blue-700",
   alfa: "bg-red-100 text-red-700",
+};
+
+const STATUS_TILE_TINT: Record<AttendanceStatus, { bg: string; badge: string; text: string }> = {
+  hadir: {
+    bg: "bg-emerald-50",
+    badge: "bg-emerald-100 text-emerald-600",
+    text: "text-emerald-700",
+  },
+  izin: { bg: "bg-amber-50", badge: "bg-amber-100 text-amber-600", text: "text-amber-700" },
+  sakit: { bg: "bg-blue-50", badge: "bg-blue-100 text-blue-600", text: "text-blue-700" },
+  alfa: { bg: "bg-red-50", badge: "bg-red-100 text-red-600", text: "text-red-700" },
 };
 
 function formatDate(iso: string) {
@@ -48,7 +60,6 @@ export function MyAttendanceView({ subjects }: { subjects: StudentSubjectAttenda
   }
 
   const selected = subjects.find((s) => s.subjectId === selectedSubjectId) ?? subjects[0];
-  const tidakHadir = selected.sakitCount + selected.izinCount + selected.alfaCount;
 
   return (
     <div className="space-y-6">
@@ -68,19 +79,77 @@ export function MyAttendanceView({ subjects }: { subjects: StudentSubjectAttenda
         </Select>
       </Card>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card className="rounded-2xl border-0 bg-muted/40 p-4">
-          <div className="text-xs text-muted-foreground">🗓️ Persentase Kehadiran</div>
-          <div className="mt-1 font-display text-2xl font-bold">{selected.percentHadir}%</div>
+      {/* Mobile: percentage bar + 2x2 status grid */}
+      <div className="space-y-3 md:hidden">
+        <Card className="rounded-2xl border-0 p-4 shadow-soft">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Rata-rata Kehadiran</span>
+            <span className="font-display text-lg font-bold text-emerald-600">
+              {selected.percentHadir}%
+            </span>
+          </div>
+          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-all"
+              style={{ width: `${Math.min(100, Math.max(0, selected.percentHadir))}%` }}
+            />
+          </div>
         </Card>
-        <Card className="rounded-2xl border-0 bg-muted/40 p-4">
-          <div className="text-xs text-muted-foreground">✅ Hadir</div>
-          <div className="mt-1 font-display text-2xl font-bold">{selected.hadirCount}</div>
-        </Card>
-        <Card className="rounded-2xl border-0 bg-muted/40 p-4">
-          <div className="text-xs text-muted-foreground">⚠️ Tidak Hadir</div>
-          <div className="mt-1 font-display text-2xl font-bold">{tidakHadir}</div>
-        </Card>
+        <div className="grid grid-cols-2 gap-3">
+          <StatusTile
+            icon={Check}
+            value={selected.hadirCount}
+            label="Hadir"
+            tint={STATUS_TILE_TINT.hadir}
+          />
+          <StatusTile
+            icon={Calendar}
+            value={selected.izinCount}
+            label="Izin"
+            tint={STATUS_TILE_TINT.izin}
+          />
+          <StatusTile
+            icon={Thermometer}
+            value={selected.sakitCount}
+            label="Sakit"
+            tint={STATUS_TILE_TINT.sakit}
+          />
+          <StatusTile
+            icon={X}
+            value={selected.alfaCount}
+            label="Alfa"
+            tint={STATUS_TILE_TINT.alfa}
+          />
+        </div>
+      </div>
+
+      {/* Desktop: horizontal row of quick-info cards */}
+      <div className="hidden md:grid md:grid-cols-5 md:gap-3">
+        <AttendancePercentCard percent={selected.percentHadir} />
+        <QuickInfoCard
+          emoji="✅"
+          value={selected.hadirCount}
+          label="Hadir"
+          badgeClass={STATUS_BADGE.hadir}
+        />
+        <QuickInfoCard
+          emoji="✋"
+          value={selected.izinCount}
+          label="Izin"
+          badgeClass={STATUS_BADGE.izin}
+        />
+        <QuickInfoCard
+          emoji="🤒"
+          value={selected.sakitCount}
+          label="Sakit"
+          badgeClass={STATUS_BADGE.sakit}
+        />
+        <QuickInfoCard
+          emoji="❌"
+          value={selected.alfaCount}
+          label="Alfa"
+          badgeClass={STATUS_BADGE.alfa}
+        />
       </div>
 
       <Card className="rounded-3xl border-0 p-6 shadow-soft">
@@ -125,5 +194,77 @@ export function MyAttendanceView({ subjects }: { subjects: StudentSubjectAttenda
         )}
       </Card>
     </div>
+  );
+}
+
+function StatusTile({
+  icon: Icon,
+  value,
+  label,
+  tint,
+}: {
+  icon: LucideIcon;
+  value: number;
+  label: string;
+  tint: { bg: string; badge: string; text: string };
+}) {
+  return (
+    <Card className={`rounded-2xl border-0 p-4 text-center shadow-soft ${tint.bg}`}>
+      <div className={`mx-auto grid h-9 w-9 place-items-center rounded-full ${tint.badge}`}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className={`mt-2 font-display text-2xl font-bold ${tint.text}`}>{value}</div>
+      <div className="text-xs text-muted-foreground">{label}</div>
+    </Card>
+  );
+}
+
+function QuickInfoCard({
+  emoji,
+  value,
+  label,
+  badgeClass,
+}: {
+  emoji: string;
+  value: number;
+  label: string;
+  badgeClass: string;
+}) {
+  return (
+    <Card className="aspect-square w-32 shrink-0 rounded-2xl border-0 p-4 shadow-soft md:aspect-auto md:w-auto md:p-5">
+      <div className="flex h-full flex-col justify-center gap-2">
+        <div className="flex items-center gap-2">
+          <div
+            className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-base ${badgeClass}`}
+          >
+            {emoji}
+          </div>
+          <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        </div>
+        <div className="font-display text-2xl font-bold">{value}</div>
+      </div>
+    </Card>
+  );
+}
+
+function AttendancePercentCard({ percent }: { percent: number }) {
+  return (
+    <Card className="aspect-square w-32 shrink-0 rounded-2xl border-0 p-4 shadow-soft md:aspect-auto md:w-auto md:p-5">
+      <div className="flex h-full flex-col justify-center gap-2">
+        <div className="flex items-center gap-2">
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary-soft/60 text-base text-primary">
+            🗓️
+          </div>
+          <span className="text-xs font-medium text-muted-foreground">Kehadiran</span>
+        </div>
+        <div className="font-display text-2xl font-bold">{percent}%</div>
+        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-primary transition-all"
+            style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
+          />
+        </div>
+      </div>
+    </Card>
   );
 }

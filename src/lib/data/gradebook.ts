@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { appliesToGrade } from "@/lib/data/subjects";
 
 export interface GradebookTpColumn {
   id: string;
@@ -247,4 +248,109 @@ export async function getStudentHistory(
         ? Math.round(kuisScores.reduce((a, b) => a + b, 0) / kuisScores.length)
         : null,
   };
+}
+
+export interface StudentTpGrade {
+  tpId: string;
+  tpTitle: string;
+  average: number;
+}
+
+export interface StudentSubjectGrade {
+  subjectId: string;
+  subjectName: string;
+  subjectEmoji: string | null;
+  subjectColor: string | null;
+  overallAverage: number | null;
+  tpGrades: StudentTpGrade[];
+}
+
+export async function getStudentGrades(
+  studentId: string,
+  classId: string | null,
+): Promise<StudentSubjectGrade[]> {
+  if (!classId) return [];
+  const supabase = await createClient();
+
+  const [{ data: subjects }, { data: klass }] = await Promise.all([
+    supabase.from("subjects").select("id, name, emoji, color, min_grade, max_grade").order("name"),
+    supabase.from("classes").select("grade_level").eq("id", classId).single(),
+  ]);
+  const gradeLevel = klass?.grade_level ?? null;
+  const visibleSubjects = (subjects ?? []).filter((s) =>
+    appliesToGrade(gradeLevel, s.min_grade, s.max_grade),
+  );
+
+  const { data: assignments } = await supabase
+    .from("assignments")
+    .select("id, subject_id, learning_objective_id, learning_objectives(title, sort_order)")
+    .eq("class_id", classId);
+
+  const assignmentIds = (assignments ?? []).map((a) => a.id);
+  const { data: submissions } =
+    assignmentIds.length > 0
+      ? await supabase
+          .from("submissions")
+          .select("assignment_id, score")
+          .eq("student_id", studentId)
+          .eq("status", "graded")
+          .in("assignment_id", assignmentIds)
+      : { data: [] as { assignment_id: string; score: number | null }[] };
+
+  const assignmentById = new Map((assignments ?? []).map((a) => [a.id, a]));
+
+  const scoresBySubject = new Map<string, number[]>();
+  const tpScoresBySubject = new Map<
+    string,
+    Map<string, { title: string; sortOrder: number; scores: number[] }>
+  >();
+
+  for (const sub of submissions ?? []) {
+    if (sub.score == null) continue;
+    const a = assignmentById.get(sub.assignment_id);
+    if (!a) continue;
+
+    const subjectScores = scoresBySubject.get(a.subject_id) ?? [];
+    subjectScores.push(sub.score);
+    scoresBySubject.set(a.subject_id, subjectScores);
+
+    if (a.learning_objective_id) {
+      const lo = a.learning_objectives as unknown as { title: string; sort_order: number } | null;
+      const tpMap = tpScoresBySubject.get(a.subject_id) ?? new Map();
+      const entry = tpMap.get(a.learning_objective_id) ?? {
+        title: lo?.title ?? "TP",
+        sortOrder: lo?.sort_order ?? 0,
+        scores: [] as number[],
+      };
+      entry.scores.push(sub.score);
+      tpMap.set(a.learning_objective_id, entry);
+      tpScoresBySubject.set(a.subject_id, tpMap);
+    }
+  }
+
+  return visibleSubjects.map((s) => {
+    const scores = scoresBySubject.get(s.id) ?? [];
+    const tpMap = tpScoresBySubject.get(s.id);
+    const tpGrades: StudentTpGrade[] = tpMap
+      ? [...tpMap.entries()]
+          .map(([tpId, { title, sortOrder, scores: tpScores }]) => ({
+            tpId,
+            tpTitle: title,
+            sortOrder,
+            average: Math.round(tpScores.reduce((a, b) => a + b, 0) / tpScores.length),
+          }))
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map(({ tpId, tpTitle, average }) => ({ tpId, tpTitle, average }))
+      : [];
+
+    return {
+      subjectId: s.id,
+      subjectName: s.name,
+      subjectEmoji: s.emoji,
+      subjectColor: s.color,
+      overallAverage:
+        scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null,
+      tpGrades,
+    };
+  });
 }
