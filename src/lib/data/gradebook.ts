@@ -253,7 +253,7 @@ export async function getStudentHistory(
 export interface StudentTpGrade {
   tpId: string;
   tpTitle: string;
-  average: number;
+  average: number | null;
 }
 
 export interface StudentSubjectGrade {
@@ -280,11 +280,21 @@ export async function getStudentGrades(
   const visibleSubjects = (subjects ?? []).filter((s) =>
     appliesToGrade(gradeLevel, s.min_grade, s.max_grade),
   );
+  const visibleSubjectIds = visibleSubjects.map((s) => s.id);
 
-  const { data: assignments } = await supabase
-    .from("assignments")
-    .select("id, subject_id, learning_objective_id, learning_objectives(title, sort_order)")
-    .eq("class_id", classId);
+  const [{ data: plans }, { data: assignments }] = await Promise.all([
+    visibleSubjectIds.length > 0
+      ? supabase
+          .from("curriculum_plans")
+          .select("subject_id, learning_objectives(id, title, sort_order)")
+          .eq("class_id", classId)
+          .in("subject_id", visibleSubjectIds)
+      : Promise.resolve({ data: [] as never[] }),
+    supabase
+      .from("assignments")
+      .select("id, subject_id, learning_objective_id, learning_objectives(title, sort_order)")
+      .eq("class_id", classId),
+  ]);
 
   const assignmentIds = (assignments ?? []).map((a) => a.id);
   const { data: submissions } =
@@ -304,6 +314,23 @@ export async function getStudentGrades(
     string,
     Map<string, { title: string; sortOrder: number; scores: number[] }>
   >();
+
+  for (const plan of plans ?? []) {
+    const objectives =
+      (plan.learning_objectives as unknown as
+        { id: string; title: string; sort_order: number }[] | null) ?? [];
+    const tpMap = tpScoresBySubject.get(plan.subject_id) ?? new Map();
+    for (const objective of objectives) {
+      if (!tpMap.has(objective.id)) {
+        tpMap.set(objective.id, {
+          title: objective.title,
+          sortOrder: objective.sort_order,
+          scores: [],
+        });
+      }
+    }
+    tpScoresBySubject.set(plan.subject_id, tpMap);
+  }
 
   for (const sub of submissions ?? []) {
     if (sub.score == null) continue;
@@ -337,7 +364,10 @@ export async function getStudentGrades(
             tpId,
             tpTitle: title,
             sortOrder,
-            average: Math.round(tpScores.reduce((a, b) => a + b, 0) / tpScores.length),
+            average:
+              tpScores.length > 0
+                ? Math.round(tpScores.reduce((a, b) => a + b, 0) / tpScores.length)
+                : null,
           }))
           .sort((a, b) => a.sortOrder - b.sortOrder)
           .map(({ tpId, tpTitle, average }) => ({ tpId, tpTitle, average }))
@@ -353,4 +383,152 @@ export async function getStudentGrades(
       tpGrades,
     };
   });
+}
+
+export interface GradedActivityRow {
+  id: string;
+  title: string;
+  kind: "tugas" | "kuis";
+  gradedAt: string | null;
+  score: number;
+}
+
+export interface TpGradeDetail {
+  tpId: string;
+  tpTitle: string;
+  average: number | null;
+  activities: GradedActivityRow[];
+}
+
+export interface StudentSubjectGradeDetail {
+  subjectId: string;
+  subjectName: string;
+  subjectEmoji: string | null;
+  subjectColor: string | null;
+  overallAverage: number | null;
+  tugasGradedCount: number;
+  kuisGradedCount: number;
+  totalActivityCount: number;
+  highestScore: number | null;
+  highestScoreCount: number;
+  tpDetails: TpGradeDetail[];
+}
+
+export async function getStudentSubjectGradeDetail(
+  studentId: string,
+  classId: string,
+  subjectId: string,
+): Promise<StudentSubjectGradeDetail | null> {
+  const supabase = await createClient();
+
+  const [{ data: subject }, { data: plan }, { data: assignments }] = await Promise.all([
+    supabase.from("subjects").select("id, name, emoji, color").eq("id", subjectId).maybeSingle(),
+    supabase
+      .from("curriculum_plans")
+      .select("id, learning_objectives(id, title, sort_order)")
+      .eq("class_id", classId)
+      .eq("subject_id", subjectId)
+      .maybeSingle(),
+    supabase
+      .from("assignments")
+      .select("id, title, kind, learning_objective_id, learning_objectives(title, sort_order)")
+      .eq("class_id", classId)
+      .eq("subject_id", subjectId),
+  ]);
+
+  if (!subject) return null;
+
+  const assignmentIds = (assignments ?? []).map((a) => a.id);
+  const { data: submissions } =
+    assignmentIds.length > 0
+      ? await supabase
+          .from("submissions")
+          .select("assignment_id, score, graded_at")
+          .eq("student_id", studentId)
+          .eq("status", "graded")
+          .in("assignment_id", assignmentIds)
+      : { data: [] as { assignment_id: string; score: number | null; graded_at: string | null }[] };
+
+  const assignmentById = new Map((assignments ?? []).map((a) => [a.id, a]));
+
+  const tpMap = new Map<
+    string,
+    { title: string; sortOrder: number; activities: GradedActivityRow[] }
+  >();
+  const objectives =
+    (plan?.learning_objectives as unknown as
+      { id: string; title: string; sort_order: number }[] | null) ?? [];
+  for (const o of objectives) {
+    tpMap.set(o.id, { title: o.title, sortOrder: o.sort_order, activities: [] });
+  }
+
+  let tugasGradedCount = 0;
+  let kuisGradedCount = 0;
+  const allGradedScores: number[] = [];
+
+  for (const sub of submissions ?? []) {
+    if (sub.score == null) continue;
+    const a = assignmentById.get(sub.assignment_id);
+    if (!a) continue;
+
+    allGradedScores.push(sub.score);
+    const kind: "tugas" | "kuis" = a.kind === "quiz" ? "kuis" : "tugas";
+    if (kind === "kuis") kuisGradedCount++;
+    else tugasGradedCount++;
+
+    if (a.learning_objective_id) {
+      const lo = a.learning_objectives as unknown as { title: string; sort_order: number } | null;
+      const entry = tpMap.get(a.learning_objective_id) ?? {
+        title: lo?.title ?? "TP",
+        sortOrder: lo?.sort_order ?? 0,
+        activities: [] as GradedActivityRow[],
+      };
+      entry.activities.push({
+        id: a.id,
+        title: a.title,
+        kind,
+        gradedAt: sub.graded_at,
+        score: sub.score,
+      });
+      tpMap.set(a.learning_objective_id, entry);
+    }
+  }
+
+  const tpDetails: TpGradeDetail[] = [...tpMap.entries()]
+    .map(([tpId, { title, sortOrder, activities }]) => {
+      const scores = activities.map((a) => a.score);
+      return {
+        tpId,
+        tpTitle: title,
+        sortOrder,
+        average:
+          scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null,
+        activities: [...activities].sort((a, b) =>
+          (b.gradedAt ?? "").localeCompare(a.gradedAt ?? ""),
+        ),
+      };
+    })
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map(({ tpId, tpTitle, average, activities }) => ({ tpId, tpTitle, average, activities }));
+
+  const highestScore = allGradedScores.length > 0 ? Math.max(...allGradedScores) : null;
+  const highestScoreCount =
+    highestScore != null ? allGradedScores.filter((s) => s === highestScore).length : 0;
+
+  return {
+    subjectId: subject.id,
+    subjectName: subject.name,
+    subjectEmoji: subject.emoji,
+    subjectColor: subject.color,
+    overallAverage:
+      allGradedScores.length > 0
+        ? Math.round(allGradedScores.reduce((a, b) => a + b, 0) / allGradedScores.length)
+        : null,
+    tugasGradedCount,
+    kuisGradedCount,
+    totalActivityCount: assignmentIds.length,
+    highestScore,
+    highestScoreCount,
+    tpDetails,
+  };
 }

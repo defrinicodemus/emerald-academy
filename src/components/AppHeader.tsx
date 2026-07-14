@@ -31,16 +31,22 @@ export function AppHeader({
   const { user } = useAuth();
   const path = usePathname();
   const [dark, setDark] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
   const [, startTransition] = useTransition();
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
+  useEffect(() => {
+    setDismissed(false);
+  }, [unreadCount]);
 
   const showClassPicker = user?.role === "principal";
   const pageTitle = user ? (NAV[user.role].find((item) => item.url === path)?.title ?? "") : "";
+  const showBadge = !dismissed && unreadCount > 0;
 
   function handleNotificationsOpenChange(open: boolean) {
     if (open && unreadCount > 0) {
+      setDismissed(true);
       startTransition(() => {
         markSeen();
       });
@@ -62,7 +68,7 @@ export function AppHeader({
               aria-label="Notifikasi"
             >
               <Bell className="h-4 w-4" />
-              {unreadCount > 0 && (
+              {showBadge && (
                 <span className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>

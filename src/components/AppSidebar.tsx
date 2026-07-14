@@ -76,6 +76,12 @@ export const NAV: Record<Role, { title: string; url: string; icon: LucideIcon }[
   ],
 };
 
+function studentClassLabel(className?: string): string | null {
+  if (!className) return null;
+  const gradeNumber = className.match(/\d+/)?.[0];
+  return gradeNumber ? `Siswa Kelas ${gradeNumber}` : null;
+}
+
 export function AppSidebar({
   schoolName,
   logoUrl,
@@ -91,7 +97,7 @@ export function AppSidebar({
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
-        <Link href="/dashboard" className="flex items-center gap-2 px-2 py-3">
+        <Link href="/dashboard" className="flex min-w-0 items-center gap-2 px-2 py-3">
           <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-2xl bg-sidebar-primary text-sidebar-primary-foreground shadow-soft">
             {logoUrl ? (
               <img
@@ -103,10 +109,11 @@ export function AppSidebar({
               <Sparkles className="h-5 w-5" />
             )}
           </div>
-          <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-            <div className="truncate font-display text-base font-bold leading-tight text-sidebar-foreground">
+          <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+            <div className="break-words font-display text-base font-bold leading-tight text-sidebar-foreground">
               {schoolName ?? "SD Inpres Nggodimeda"}
             </div>
+            <div className="text-[10px] font-medium text-sidebar-foreground/60">LMS Sekolah</div>
           </div>
         </Link>
       </SidebarHeader>
@@ -142,7 +149,7 @@ export function AppSidebar({
           <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
             <div className="truncate text-sm font-medium text-sidebar-foreground">{user.name}</div>
             <div className="truncate text-[11px] uppercase tracking-wider text-sidebar-foreground/60">
-              {user.role}
+              {user.role === "student" ? (studentClassLabel(user.className) ?? "Siswa") : user.role}
             </div>
           </div>
           <Button
