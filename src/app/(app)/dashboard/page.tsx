@@ -6,7 +6,6 @@ import {
   getPrincipalDashboardData,
   getAdminDashboardData,
 } from "@/lib/data/dashboard";
-import { listTeachersWithStats } from "@/lib/data/people";
 import { getSchool } from "@/lib/data/school";
 import { getTeacherClassSubjects } from "@/lib/data/teaching";
 import { StudentDashboard } from "@/components/dashboards/StudentDashboard";
@@ -33,11 +32,8 @@ export default async function DashboardPage() {
   }
 
   if (user.role === "principal") {
-    const [data, teachers] = await Promise.all([
-      getPrincipalDashboardData(),
-      listTeachersWithStats(),
-    ]);
-    return <PrincipalDashboard data={data} teachers={teachers} />;
+    const data = await getPrincipalDashboardData();
+    return <PrincipalDashboard data={data} />;
   }
 
   const data = await getAdminDashboardData();

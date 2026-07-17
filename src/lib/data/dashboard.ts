@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { appliesToGrade } from "@/lib/data/subjects";
+import { listAnnouncements, type AnnouncementRow } from "@/lib/data/announcements";
 
 export async function getStudentDashboardData(studentId: string, classId: string | null) {
   const supabase = await createClient();
@@ -143,41 +144,287 @@ export async function getStudentDashboardData(studentId: string, classId: string
   };
 }
 
-export async function getPrincipalDashboardData() {
+export interface PrincipalTodayActivity {
+  materialsUploaded: number;
+  assignmentsCreated: number;
+  quizzesCreated: number;
+  attendanceFilled: number;
+  tugasSubmitted: number;
+  kuisCompleted: number;
+}
+
+export interface PrincipalTopTeacher {
+  id: string;
+  name: string;
+  materials: number;
+  assignments: number;
+  attendanceSessions: number;
+}
+
+export interface PrincipalRecentActivityItem {
+  id: string;
+  text: string;
+  timestamp: string;
+}
+
+export interface PrincipalDashboardData {
+  totalStudents: number;
+  totalTeachers: number;
+  totalClasses: number;
+  todayActivity: PrincipalTodayActivity;
+  weeklyActivity: { day: string; total: number }[];
+  monthlySummary: { materials: number; assignments: number; quizzes: number };
+  topTeachers: PrincipalTopTeacher[];
+  monitoring: {
+    mostActiveClassName: string | null;
+    mostActiveSubjectName: string | null;
+    tugasCompletionPercent: number | null;
+    kuisCompletionPercent: number | null;
+  };
+  recentAnnouncements: AnnouncementRow[];
+  recentActivity: PrincipalRecentActivityItem[];
+}
+
+export async function getPrincipalDashboardData(): Promise<PrincipalDashboardData> {
   const supabase = await createClient();
+
   const [
     { data: profiles },
-    { data: subjects },
     { data: classes },
-    { data: materialsBySubject },
-    { data: assignmentsBySubject },
+    { data: subjects },
+    { data: materials },
+    { data: assignments },
+    { data: meetings },
+    { data: submissions },
+    recentAnnouncements,
   ] = await Promise.all([
-    supabase.from("profiles").select("role"),
-    supabase.from("subjects").select("id"),
-    supabase.from("classes").select("id"),
-    supabase.from("materials").select("subjects(name)"),
-    supabase.from("assignments").select("subjects(name)"),
+    supabase.from("profiles").select("id, role, class_id, full_name"),
+    supabase.from("classes").select("id, name"),
+    supabase.from("subjects").select("id, name"),
+    supabase.from("materials").select("id, teacher_id, subject_id, class_id, created_at"),
+    supabase.from("assignments").select("id, teacher_id, subject_id, class_id, kind, created_at"),
+    supabase.from("class_meetings").select("id, teacher_id, subject_id, class_id, created_at"),
+    supabase.from("submissions").select("id, assignment_id, student_id, status, submitted_at"),
+    listAnnouncements(3),
   ]);
-  const counts = { student: 0, teacher: 0, principal: 0, admin: 0 };
-  for (const row of profiles ?? []) counts[row.role as keyof typeof counts]++;
 
-  const bySubject = new Map<string, number>();
-  for (const row of materialsBySubject ?? []) {
-    const name = (row.subjects as unknown as { name: string } | null)?.name;
-    if (name) bySubject.set(name, (bySubject.get(name) ?? 0) + 1);
+  const roleCounts = { student: 0, teacher: 0, principal: 0, admin: 0 };
+  const teacherNameById = new Map<string, string>();
+  const studentNameById = new Map<string, string>();
+  const studentCountByClass = new Map<string, number>();
+  for (const p of profiles ?? []) {
+    roleCounts[p.role as keyof typeof roleCounts]++;
+    if (p.role === "teacher") teacherNameById.set(p.id, p.full_name);
+    if (p.role === "student") {
+      studentNameById.set(p.id, p.full_name);
+      if (p.class_id)
+        studentCountByClass.set(p.class_id, (studentCountByClass.get(p.class_id) ?? 0) + 1);
+    }
   }
-  for (const row of assignmentsBySubject ?? []) {
-    const name = (row.subjects as unknown as { name: string } | null)?.name;
-    if (name) bySubject.set(name, (bySubject.get(name) ?? 0) + 1);
+
+  const classNameById = new Map((classes ?? []).map((c) => [c.id, c.name]));
+  const subjectNameById = new Map((subjects ?? []).map((s) => [s.id, s.name]));
+  const assignmentById = new Map((assignments ?? []).map((a) => [a.id, a]));
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfWeek = new Date(startOfToday.getTime() - 6 * 86400000);
+
+  function dayKey(iso: string) {
+    return new Date(iso).toISOString().slice(0, 10);
   }
-  const activity = [...bySubject.entries()].map(([name, value]) => ({ name, value }));
+
+  const dayBuckets: { key: string; day: string; total: number }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(startOfToday.getTime() - i * 86400000);
+    dayBuckets.push({
+      key: d.toISOString().slice(0, 10),
+      day: d.toLocaleDateString("id-ID", { weekday: "short" }),
+      total: 0,
+    });
+  }
+  const bucketByKey = new Map(dayBuckets.map((b) => [b.key, b]));
+  function addToWeekBucket(iso: string) {
+    const bucket = bucketByKey.get(dayKey(iso));
+    if (bucket) bucket.total++;
+  }
+
+  const todayActivity: PrincipalTodayActivity = {
+    materialsUploaded: 0,
+    assignmentsCreated: 0,
+    quizzesCreated: 0,
+    attendanceFilled: 0,
+    tugasSubmitted: 0,
+    kuisCompleted: 0,
+  };
+  const monthlySummary = { materials: 0, assignments: 0, quizzes: 0 };
+
+  const classActivity = new Map<string, number>();
+  const subjectActivity = new Map<string, number>();
+  function bump(map: Map<string, number>, key: string | null | undefined) {
+    if (!key) return;
+    map.set(key, (map.get(key) ?? 0) + 1);
+  }
+
+  const materialCountByTeacher = new Map<string, number>();
+  const assignmentCountByTeacher = new Map<string, number>();
+  const meetingCountByTeacher = new Map<string, number>();
+
+  const timeline: { timestamp: string; text: string }[] = [];
+
+  for (const m of materials ?? []) {
+    const created = new Date(m.created_at);
+    if (created >= startOfToday) todayActivity.materialsUploaded++;
+    if (created >= startOfMonth) monthlySummary.materials++;
+    if (created >= startOfWeek) addToWeekBucket(m.created_at);
+    bump(classActivity, m.class_id);
+    bump(subjectActivity, m.subject_id);
+    if (m.teacher_id) {
+      materialCountByTeacher.set(m.teacher_id, (materialCountByTeacher.get(m.teacher_id) ?? 0) + 1);
+      timeline.push({
+        timestamp: m.created_at,
+        text: `Guru ${teacherNameById.get(m.teacher_id) ?? "?"} mengunggah materi`,
+      });
+    }
+  }
+
+  for (const a of assignments ?? []) {
+    const created = new Date(a.created_at);
+    const isQuiz = a.kind === "quiz";
+    if (created >= startOfToday) {
+      if (isQuiz) todayActivity.quizzesCreated++;
+      else todayActivity.assignmentsCreated++;
+    }
+    if (created >= startOfMonth) {
+      if (isQuiz) monthlySummary.quizzes++;
+      else monthlySummary.assignments++;
+    }
+    if (created >= startOfWeek) addToWeekBucket(a.created_at);
+    bump(classActivity, a.class_id);
+    bump(subjectActivity, a.subject_id);
+    if (a.teacher_id) {
+      assignmentCountByTeacher.set(
+        a.teacher_id,
+        (assignmentCountByTeacher.get(a.teacher_id) ?? 0) + 1,
+      );
+      timeline.push({
+        timestamp: a.created_at,
+        text: `Guru ${teacherNameById.get(a.teacher_id) ?? "?"} ${isQuiz ? "membuat kuis" : "membuat tugas"}`,
+      });
+    }
+  }
+
+  for (const mt of meetings ?? []) {
+    const created = new Date(mt.created_at);
+    if (created >= startOfToday) todayActivity.attendanceFilled++;
+    if (created >= startOfWeek) addToWeekBucket(mt.created_at);
+    bump(classActivity, mt.class_id);
+    bump(subjectActivity, mt.subject_id);
+    if (mt.teacher_id) {
+      meetingCountByTeacher.set(mt.teacher_id, (meetingCountByTeacher.get(mt.teacher_id) ?? 0) + 1);
+      timeline.push({
+        timestamp: mt.created_at,
+        text: `Guru ${teacherNameById.get(mt.teacher_id) ?? "?"} mengisi presensi`,
+      });
+    }
+  }
+
+  const submittedByAssignment = new Map<string, number>();
+  for (const s of submissions ?? []) {
+    if (s.status !== "submitted" && s.status !== "graded") continue;
+    submittedByAssignment.set(
+      s.assignment_id,
+      (submittedByAssignment.get(s.assignment_id) ?? 0) + 1,
+    );
+
+    const a = assignmentById.get(s.assignment_id);
+    const isQuiz = a?.kind === "quiz";
+    if (a) {
+      bump(classActivity, a.class_id);
+      bump(subjectActivity, a.subject_id);
+    }
+    if (!s.submitted_at) continue;
+    const submitted = new Date(s.submitted_at);
+    if (submitted >= startOfToday) {
+      if (isQuiz) todayActivity.kuisCompleted++;
+      else todayActivity.tugasSubmitted++;
+    }
+    if (submitted >= startOfWeek) addToWeekBucket(s.submitted_at);
+    timeline.push({
+      timestamp: s.submitted_at,
+      text: `Siswa ${studentNameById.get(s.student_id) ?? "?"} ${isQuiz ? "menyelesaikan kuis" : "menyelesaikan tugas"}`,
+    });
+  }
+
+  let tugasExpected = 0;
+  let tugasActual = 0;
+  let kuisExpected = 0;
+  let kuisActual = 0;
+  for (const a of assignments ?? []) {
+    const expected = studentCountByClass.get(a.class_id) ?? 0;
+    const actual = submittedByAssignment.get(a.id) ?? 0;
+    if (a.kind === "quiz") {
+      kuisExpected += expected;
+      kuisActual += actual;
+    } else {
+      tugasExpected += expected;
+      tugasActual += actual;
+    }
+  }
+
+  function topEntryName(map: Map<string, number>, nameById: Map<string, string>): string | null {
+    let bestKey: string | null = null;
+    let bestValue = 0;
+    for (const [key, value] of map) {
+      if (value > bestValue) {
+        bestValue = value;
+        bestKey = key;
+      }
+    }
+    return bestKey ? (nameById.get(bestKey) ?? null) : null;
+  }
+
+  const topTeachers: PrincipalTopTeacher[] = [...teacherNameById.entries()]
+    .map(([id, name]) => ({
+      id,
+      name,
+      materials: materialCountByTeacher.get(id) ?? 0,
+      assignments: assignmentCountByTeacher.get(id) ?? 0,
+      attendanceSessions: meetingCountByTeacher.get(id) ?? 0,
+    }))
+    .sort(
+      (a, b) =>
+        b.materials +
+        b.assignments +
+        b.attendanceSessions -
+        (a.materials + a.assignments + a.attendanceSessions),
+    )
+    .slice(0, 3);
+
+  const recentActivity: PrincipalRecentActivityItem[] = timeline
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+    .slice(0, 5)
+    .map((item, i) => ({ id: String(i), text: item.text, timestamp: item.timestamp }));
 
   return {
-    totalStudents: counts.student,
-    totalTeachers: counts.teacher,
-    totalSubjects: subjects?.length ?? 0,
+    totalStudents: roleCounts.student,
+    totalTeachers: roleCounts.teacher,
     totalClasses: classes?.length ?? 0,
-    activity,
+    todayActivity,
+    weeklyActivity: dayBuckets.map((b) => ({ day: b.day, total: b.total })),
+    monthlySummary,
+    topTeachers,
+    monitoring: {
+      mostActiveClassName: topEntryName(classActivity, classNameById),
+      mostActiveSubjectName: topEntryName(subjectActivity, subjectNameById),
+      tugasCompletionPercent:
+        tugasExpected > 0 ? Math.min(100, Math.round((tugasActual / tugasExpected) * 100)) : null,
+      kuisCompletionPercent:
+        kuisExpected > 0 ? Math.min(100, Math.round((kuisActual / kuisExpected) * 100)) : null,
+    },
+    recentAnnouncements,
+    recentActivity,
   };
 }
 
