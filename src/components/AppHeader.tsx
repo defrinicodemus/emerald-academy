@@ -13,7 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ClassPicker } from "@/components/ClassPicker";
 import { useAuth } from "@/lib/auth-context";
 import { Bell, Moon, Sun } from "lucide-react";
 import type { AnnouncementRow } from "@/lib/data/announcements";
@@ -40,7 +39,6 @@ export function AppHeader({
     setDismissed(false);
   }, [unreadCount]);
 
-  const showClassPicker = user?.role === "principal";
   const pageTitle = user ? (NAV[user.role].find((item) => item.url === path)?.title ?? "") : "";
   const showBadge = !dismissed && unreadCount > 0;
 
@@ -58,7 +56,6 @@ export function AppHeader({
       <SidebarTrigger className="shrink-0 text-foreground" />
       <div className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{pageTitle}</div>
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        {showClassPicker && <ClassPicker />}
         <DropdownMenu onOpenChange={handleNotificationsOpenChange}>
           <DropdownMenuTrigger asChild>
             <Button
