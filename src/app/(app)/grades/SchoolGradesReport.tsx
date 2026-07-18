@@ -1,154 +1,256 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { PageHeader } from "@/components/PageHeader";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useActiveClass, EmptyClassState } from "@/components/ClassPicker";
 import {
-  Bar,
-  BarChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-  Area,
-  AreaChart,
-} from "recharts";
-import { Download } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Filter, FileDown } from "lucide-react";
+import type { SchoolReportData } from "@/lib/data/schoolReport";
+import { tone, BADGE_CLASS } from "@/lib/monitoringTone";
 
-interface GradeRow {
-  subjectName: string;
-  score: number;
-  period_month: string;
-}
+const SEMESTER_LABEL: Record<"ganjil" | "genap", string> = {
+  ganjil: "Ganjil",
+  genap: "Genap",
+};
 
-export function SchoolGradesReport() {
-  const { active, activeClassId } = useActiveClass();
-  const [rows, setRows] = useState<GradeRow[]>([]);
+export function SchoolGradesReport({ data }: { data: SchoolReportData | null }) {
+  const router = useRouter();
+  const [selectedYearId, setSelectedYearId] = useState(data?.selectedYearId ?? "");
 
-  useEffect(() => {
-    const supabase = createClient();
-    let cancelled = false;
-
-    (async () => {
-      if (!activeClassId) {
-        if (!cancelled) setRows([]);
-        return;
-      }
-      const { data } = await supabase
-        .from("grades")
-        .select("subject_id, score, period_month, subjects(name)")
-        .eq("class_id", activeClassId)
-        .order("period_month");
-      if (cancelled) return;
-      setRows(
-        (data ?? []).map((g) => ({
-          subjectName: (g.subjects as unknown as { name: string } | null)?.name ?? "",
-          score: Number(g.score),
-          period_month: g.period_month,
-        })),
-      );
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeClassId]);
-
-  if (!active) {
+  if (!data) {
     return (
       <div className="space-y-6">
-        <PageHeader icon="📊" title="Laporan Nilai" subtitle="Rekap nilai per kelas" />
-        <EmptyClassState message="Laporan nilai terkunci. Silakan tentukan kelas aktif Anda untuk mengunduh rekapitulasi nilai siswa." />
+        <Card className="rounded-3xl border-0 bg-muted/40 p-8 shadow-soft">
+          <h1 className="font-display text-3xl font-bold text-primary md:text-4xl">
+            Laporan Sekolah
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
+            Belum ada tahun ajaran yang terdaftar. Hubungi admin untuk menambahkan tahun ajaran pada
+            menu Struktur Akademik.
+          </p>
+        </Card>
       </div>
     );
   }
 
-  const latestMonth = rows.reduce((max, r) => (r.period_month > max ? r.period_month : max), "");
-  const bySubjectMap = new Map<string, { sum: number; count: number }>();
-  for (const r of rows.filter((r) => r.period_month === latestMonth)) {
-    const acc = bySubjectMap.get(r.subjectName) ?? { sum: 0, count: 0 };
-    acc.sum += r.score;
-    acc.count += 1;
-    bySubjectMap.set(r.subjectName, acc);
+  function applyFilter() {
+    router.push(`/grades?yearId=${selectedYearId}`);
   }
-  const bySubject = [...bySubjectMap.entries()].map(([name, { sum, count }]) => ({
-    name: name.split(" ")[0],
-    nilai: Math.round(sum / count),
-  }));
-
-  const byMonthMap = new Map<string, { sum: number; count: number }>();
-  for (const r of rows) {
-    const acc = byMonthMap.get(r.period_month) ?? { sum: 0, count: 0 };
-    acc.sum += r.score;
-    acc.count += 1;
-    byMonthMap.set(r.period_month, acc);
-  }
-  const trend = [...byMonthMap.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([month, { sum, count }]) => ({
-      name: new Date(month).toLocaleDateString("id-ID", { month: "short" }),
-      nilai: Math.round(sum / count),
-    }));
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        icon="📊"
-        title="Laporan Nilai Sekolah"
-        subtitle={`Rekap nilai · ${active}`}
-        action={
-          <Button className="rounded-xl">
-            <Download className="mr-2 h-4 w-4" /> Export Excel
-          </Button>
-        }
-      />
+      <Card className="rounded-3xl border-0 bg-muted/40 p-8 shadow-soft">
+        <h1 className="font-display text-3xl font-bold text-primary md:text-4xl">
+          Laporan Sekolah
+        </h1>
+        <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
+          Lihat rekap aktivitas LMS, kinerja pembelajaran, dan statistik penggunaan sistem sebagai
+          bahan evaluasi dan pelaporan sekolah.
+        </p>
+      </Card>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="rounded-3xl border-0 p-6 shadow-soft lg:col-span-2">
-          <h2 className="font-display text-xl font-bold">Nilai per Mata Pelajaran</h2>
-          <div className="mt-4 h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={bySubject}>
-                <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                <YAxis hide domain={[0, 100]} />
-                <Tooltip
-                  contentStyle={{ borderRadius: 12 }}
-                  cursor={{ fill: "var(--color-primary-soft)", opacity: 0.4 }}
-                />
-                <Bar dataKey="nilai" radius={[12, 12, 0, 0]} fill="var(--color-primary)" />
-              </BarChart>
-            </ResponsiveContainer>
+      <Card className="rounded-3xl border-0 p-6 shadow-soft">
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="min-w-56">
+            <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Tahun Ajaran
+            </label>
+            <Select value={selectedYearId} onValueChange={setSelectedYearId}>
+              <SelectTrigger className="mt-1.5 w-full rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {data.yearOptions.map((y) => (
+                  <SelectItem key={y.id} value={y.id}>
+                    {y.yearLabel} - {SEMESTER_LABEL[y.semester]}
+                    {y.isActive ? " (Aktif)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </Card>
-        <Card className="rounded-3xl border-0 p-6 shadow-soft">
-          <h2 className="font-display text-xl font-bold">Tren Nilai</h2>
-          <div className="mt-4 h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trend}>
-                <defs>
-                  <linearGradient id="t1" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-warning)" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="var(--color-warning)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
-                <YAxis hide domain={[60, 100]} />
-                <Tooltip contentStyle={{ borderRadius: 12 }} />
-                <Area
-                  type="monotone"
-                  dataKey="nilai"
-                  stroke="var(--color-warning)"
-                  strokeWidth={3}
-                  fill="url(#t1)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
+          <Button onClick={applyFilter} className="rounded-xl">
+            <Filter className="mr-2 h-4 w-4" /> Terapkan Filter
+          </Button>
+          <Button asChild variant="outline" className="rounded-xl">
+            <a href={`/api/reports/school-pdf?yearId=${selectedYearId}`}>
+              <FileDown className="mr-2 h-4 w-4" /> Ekspor PDF
+            </a>
+          </Button>
+        </div>
+      </Card>
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <Stat
+          icon="👩‍🏫"
+          iconClass="bg-emerald-100 text-emerald-600"
+          label="Total Guru Aktif"
+          value={data.totalGuruAktif}
+        />
+        <Stat
+          icon="🧑‍🤝‍🧑"
+          iconClass="bg-blue-100 text-blue-600"
+          label="Total Siswa Aktif"
+          value={data.totalSiswaAktif}
+        />
+        <Stat
+          icon="📘"
+          iconClass="bg-amber-100 text-amber-600"
+          label="Materi Dipublikasikan"
+          value={data.materiPublishedCount}
+        />
+        <Stat
+          icon="⚡"
+          iconClass="bg-purple-100 text-purple-600"
+          label="Aktivitas Pembelajaran (Tugas/Kuis)"
+          value={data.aktivitasPembelajaranCount}
+        />
       </div>
+
+      <Card className="rounded-3xl border-0 p-6 shadow-soft">
+        <h2 className="font-display text-xl font-bold">Rekap Kinerja Guru</h2>
+        <div className="mt-4 overflow-x-auto rounded-2xl border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3">Nama Guru</th>
+                <th className="px-4 py-3 text-right">Materi</th>
+                <th className="px-4 py-3 text-right">Tugas</th>
+                <th className="px-4 py-3 text-right">Kuis</th>
+                <th className="px-4 py-3 text-right">Presensi/Jurnal</th>
+                <th className="px-4 py-3 text-right">Total Aktivitas</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {data.teacherRows.map((t) => (
+                <tr key={t.teacherId}>
+                  <td className="px-4 py-3 font-medium">{t.name}</td>
+                  <td className="px-4 py-3 text-right">{t.materiCount}</td>
+                  <td className="px-4 py-3 text-right">{t.tugasCount}</td>
+                  <td className="px-4 py-3 text-right">{t.kuisCount}</td>
+                  <td className="px-4 py-3 text-right">{t.presensiCount}</td>
+                  <td className="px-4 py-3 text-right">
+                    <span className="inline-flex rounded-full bg-primary-soft/60 px-2.5 py-1 text-xs font-bold text-primary">
+                      {t.totalActivity}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {data.teacherRows.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                    Belum ada guru yang ditugaskan pada periode ini.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <Card className="rounded-3xl border-0 p-6 shadow-soft">
+        <h2 className="font-display text-xl font-bold">Rekap Pembelajaran Kelas</h2>
+        <div className="mt-4 overflow-x-auto rounded-2xl border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3">Kelas</th>
+                <th className="px-4 py-3">Jumlah Siswa</th>
+                <th className="px-4 py-3">Kehadiran</th>
+                <th className="px-4 py-3">Penyelesaian Tugas</th>
+                <th className="px-4 py-3">Penyelesaian Kuis</th>
+                <th className="px-4 py-3 text-right">Nilai Rata-rata</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {data.classRows.map((row) => (
+                <tr key={row.classId}>
+                  <td className="px-4 py-3 font-medium">{row.className}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{row.studentCount}</td>
+                  <td className="px-4 py-3">
+                    <FractionBadge
+                      actual={row.attendanceHadir}
+                      expected={row.attendanceTotal}
+                      percent={row.attendancePercent}
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <FractionBadge
+                      actual={row.tugasActual}
+                      expected={row.tugasExpected}
+                      percent={row.tugasCompletionPercent}
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <FractionBadge
+                      actual={row.kuisActual}
+                      expected={row.kuisExpected}
+                      percent={row.kuisCompletionPercent}
+                    />
+                  </td>
+                  <td className="px-4 py-3 text-right font-display text-base font-bold">
+                    {row.averageGradePercent}
+                  </td>
+                </tr>
+              ))}
+              {data.classRows.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                    Belum ada kelas pada periode ini.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
+  );
+}
+
+function FractionBadge({
+  actual,
+  expected,
+  percent,
+}: {
+  actual: number;
+  expected: number;
+  percent: number;
+}) {
+  return (
+    <span
+      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${BADGE_CLASS[tone(percent)]}`}
+    >
+      {actual}/{expected} ({percent}%)
+    </span>
+  );
+}
+
+function Stat({
+  icon,
+  iconClass,
+  label,
+  value,
+}: {
+  icon: string;
+  iconClass: string;
+  label: string;
+  value: number;
+}) {
+  return (
+    <Card className="rounded-3xl border-0 p-5 shadow-soft">
+      <div className={`grid h-10 w-10 place-items-center rounded-xl text-lg ${iconClass}`}>
+        {icon}
+      </div>
+      <div className="mt-3 text-sm text-muted-foreground">{label}</div>
+      <div className="mt-1 font-display text-2xl font-bold">{value}</div>
+    </Card>
   );
 }

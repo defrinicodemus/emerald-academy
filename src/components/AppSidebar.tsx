@@ -59,8 +59,7 @@ export const NAV: Record<Role, { title: string; url: string; icon: LucideIcon }[
   principal: [
     { title: "Beranda", url: "/dashboard", icon: LayoutDashboard },
     { title: "Kinerja Guru", url: "/teacher-monitoring", icon: GraduationCap },
-    { title: "Pantau Kelas", url: "/students", icon: Users },
-    { title: "Kurikulum", url: "/materials", icon: BookOpen },
+    { title: "Monitoring Pembelajaran", url: "/students", icon: Users },
     { title: "Laporan Sekolah", url: "/grades", icon: BarChart3 },
     { title: "Pengumuman", url: "/announcements", icon: Bell },
     { title: "Profil", url: "/profile", icon: User },
