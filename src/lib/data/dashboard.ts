@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { appliesToGrade } from "@/lib/data/subjects";
 import { listAnnouncements, type AnnouncementRow } from "@/lib/data/announcements";
+import type { TeacherClassSubject } from "@/lib/data/teaching";
 
 export async function getStudentDashboardData(studentId: string, classId: string | null) {
   const supabase = await createClient();
@@ -423,6 +424,231 @@ export async function getPrincipalDashboardData(): Promise<PrincipalDashboardDat
       kuisCompletionPercent:
         kuisExpected > 0 ? Math.min(100, Math.round((kuisActual / kuisExpected) * 100)) : null,
     },
+    recentAnnouncements,
+    recentActivity,
+  };
+}
+
+export interface TeacherAttendanceSummaryItem {
+  classId: string;
+  className: string;
+  subjectId: string;
+  subjectName: string;
+  hadirPercent: number;
+  hadir: number;
+  izin: number;
+  sakit: number;
+  alfa: number;
+}
+
+export interface TeacherUpcomingDeadline {
+  id: string;
+  title: string;
+  kindLabel: string;
+  subjectName: string;
+  className: string;
+  dueAt: string;
+}
+
+export interface TeacherRecentActivityItem {
+  id: string;
+  text: string;
+  timestamp: string;
+}
+
+export interface TeacherDashboardData {
+  totalClasses: number;
+  totalStudents: number;
+  kuisAktif: number;
+  tugasBelumDinilai: number;
+  attendanceSummary: TeacherAttendanceSummaryItem[];
+  upcomingDeadlines: TeacherUpcomingDeadline[];
+  recentAnnouncements: AnnouncementRow[];
+  recentActivity: TeacherRecentActivityItem[];
+}
+
+const QUIZ_TYPE_LABEL: Record<string, string> = {
+  latihan: "Kuis Latihan",
+  ulangan_harian: "Ulangan Harian",
+  uts: "UTS",
+  uas: "UAS",
+};
+
+export async function getTeacherDashboardData(
+  teacherId: string,
+  classIds: string[],
+  combos: TeacherClassSubject[],
+): Promise<TeacherDashboardData> {
+  const supabase = await createClient();
+  const nowIso = new Date().toISOString();
+
+  if (classIds.length === 0) {
+    const recentAnnouncements = await listAnnouncements(3);
+    return {
+      totalClasses: 0,
+      totalStudents: 0,
+      kuisAktif: 0,
+      tugasBelumDinilai: 0,
+      attendanceSummary: [],
+      upcomingDeadlines: [],
+      recentAnnouncements,
+      recentActivity: [],
+    };
+  }
+
+  const [
+    { count: totalStudents },
+    { count: kuisAktif },
+    { data: tugasRows },
+    { data: meetingRows },
+    { data: deadlineRows },
+    { data: teacherAssignments },
+    recentAnnouncements,
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("role", "student")
+      .in("class_id", classIds),
+    supabase
+      .from("assignments")
+      .select("id", { count: "exact", head: true })
+      .eq("kind", "quiz")
+      .eq("is_published", true)
+      .eq("is_active", true)
+      .gt("due_at", nowIso)
+      .in("class_id", classIds),
+    supabase.from("assignments").select("id").neq("kind", "quiz").in("class_id", classIds),
+    supabase
+      .from("class_meetings")
+      .select("id, class_id, subject_id, meeting_number")
+      .eq("teacher_id", teacherId)
+      .order("meeting_number", { ascending: false }),
+    supabase
+      .from("assignments")
+      .select("id, title, kind, quiz_type, due_at, is_active, subject_id, class_id")
+      .eq("teacher_id", teacherId)
+      .eq("is_published", true)
+      .gt("due_at", nowIso)
+      .order("due_at", { ascending: true })
+      .limit(15),
+    supabase.from("assignments").select("id, kind").eq("teacher_id", teacherId),
+    listAnnouncements(3),
+  ]);
+
+  // Tugas belum dinilai
+  const tugasIds = (tugasRows ?? []).map((a) => a.id);
+  let tugasBelumDinilai = 0;
+  if (tugasIds.length > 0) {
+    const { data: submissions } = await supabase
+      .from("submissions")
+      .select("status")
+      .in("assignment_id", tugasIds);
+    for (const s of submissions ?? []) {
+      if (s.status === "submitted") tugasBelumDinilai++;
+    }
+  }
+
+  // Attendance summary: latest meeting per (class, subject) combo the teacher teaches
+  const latestMeetingByComboKey = new Map<string, string>();
+  for (const m of meetingRows ?? []) {
+    const key = `${m.class_id}:${m.subject_id}`;
+    if (!latestMeetingByComboKey.has(key)) latestMeetingByComboKey.set(key, m.id);
+  }
+  const latestMeetingIds = [...latestMeetingByComboKey.values()];
+  const { data: attendanceRecords } =
+    latestMeetingIds.length > 0
+      ? await supabase
+          .from("attendance_records")
+          .select("meeting_id, status")
+          .in("meeting_id", latestMeetingIds)
+      : { data: [] as { meeting_id: string; status: string }[] };
+
+  type AttStatus = "hadir" | "sakit" | "izin" | "alfa";
+  const isAttStatus = (v: string): v is AttStatus =>
+    v === "hadir" || v === "sakit" || v === "izin" || v === "alfa";
+  const countsByMeetingId = new Map<string, Record<AttStatus, number>>();
+  for (const r of attendanceRecords ?? []) {
+    const acc = countsByMeetingId.get(r.meeting_id) ?? { hadir: 0, sakit: 0, izin: 0, alfa: 0 };
+    if (isAttStatus(r.status)) acc[r.status]++;
+    countsByMeetingId.set(r.meeting_id, acc);
+  }
+
+  const attendanceSummary: TeacherAttendanceSummaryItem[] = combos.map((c) => {
+    const meetingId = latestMeetingByComboKey.get(`${c.classId}:${c.subjectId}`);
+    const counts = (meetingId && countsByMeetingId.get(meetingId)) || {
+      hadir: 0,
+      sakit: 0,
+      izin: 0,
+      alfa: 0,
+    };
+    const total = counts.hadir + counts.sakit + counts.izin + counts.alfa;
+    return {
+      classId: c.classId,
+      className: c.className,
+      subjectId: c.subjectId,
+      subjectName: c.subjectName,
+      hadirPercent: total > 0 ? Math.round((counts.hadir / total) * 100) : 0,
+      hadir: counts.hadir,
+      izin: counts.izin,
+      sakit: counts.sakit,
+      alfa: counts.alfa,
+    };
+  });
+
+  // Upcoming deadlines (tugas + kuis), skip deactivated quizzes, cap at 5
+  const classNameById = new Map(combos.map((c) => [c.classId, c.className]));
+  const subjectNameById = new Map(combos.map((c) => [c.subjectId, c.subjectName]));
+  const upcomingDeadlines: TeacherUpcomingDeadline[] = (deadlineRows ?? [])
+    .filter((a) => a.kind !== "quiz" || a.is_active)
+    .slice(0, 5)
+    .map((a) => ({
+      id: a.id,
+      title: a.title,
+      kindLabel: a.kind === "quiz" ? (QUIZ_TYPE_LABEL[a.quiz_type ?? ""] ?? "Kuis") : "Tugas",
+      subjectName: subjectNameById.get(a.subject_id) ?? "-",
+      className: classNameById.get(a.class_id) ?? "-",
+      dueAt: a.due_at as string,
+    }));
+
+  // Recent activity: students completing this teacher's tugas/kuis
+  const assignmentKindById = new Map((teacherAssignments ?? []).map((a) => [a.id, a.kind]));
+  const teacherAssignmentIds = (teacherAssignments ?? []).map((a) => a.id);
+  let recentActivity: TeacherRecentActivityItem[] = [];
+  if (teacherAssignmentIds.length > 0) {
+    const { data: subs } = await supabase
+      .from("submissions")
+      .select("id, assignment_id, student_id, status, submitted_at")
+      .in("assignment_id", teacherAssignmentIds)
+      .in("status", ["submitted", "graded"])
+      .not("submitted_at", "is", null)
+      .order("submitted_at", { ascending: false })
+      .limit(5);
+
+    const studentIds = [...new Set((subs ?? []).map((s) => s.student_id))];
+    const { data: studentRows } =
+      studentIds.length > 0
+        ? await supabase.from("profiles").select("id, full_name").in("id", studentIds)
+        : { data: [] as { id: string; full_name: string }[] };
+    const studentNameById = new Map((studentRows ?? []).map((s) => [s.id, s.full_name]));
+
+    recentActivity = (subs ?? []).map((s, i) => {
+      const isQuiz = assignmentKindById.get(s.assignment_id) === "quiz";
+      return {
+        id: String(i),
+        text: `Siswa ${studentNameById.get(s.student_id) ?? "?"} ${isQuiz ? "menyelesaikan kuis" : "menyelesaikan tugas"}`,
+        timestamp: s.submitted_at as string,
+      };
+    });
+  }
+
+  return {
+    totalClasses: classIds.length,
+    totalStudents: totalStudents ?? 0,
+    kuisAktif: kuisAktif ?? 0,
+    tugasBelumDinilai,
+    attendanceSummary,
+    upcomingDeadlines,
     recentAnnouncements,
     recentActivity,
   };

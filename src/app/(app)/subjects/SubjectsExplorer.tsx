@@ -20,12 +20,15 @@ import {
   BookOpen,
   Image as ImageIcon,
   HelpCircle,
+  Presentation,
+  Download,
   type LucideIcon,
 } from "lucide-react";
 import type {
   AssignmentContentRow,
   MaterialContentRow,
   StudentQuizData,
+  StudentQuizQuestion,
 } from "@/lib/data/subjects";
 import {
   markMaterialViewed,
@@ -34,18 +37,21 @@ import {
   submitQuizAnswers,
 } from "./actions";
 import { ExpandableCardList } from "./ExpandableCardList";
+import { cn } from "@/lib/utils";
 
 const KIND_ICON: Record<string, LucideIcon> = {
   pdf: FileText,
   video: Video,
   text: BookOpen,
   image: ImageIcon,
+  slideshow: Presentation,
 };
 const KIND_LABEL: Record<string, string> = {
   pdf: "PDF",
   video: "YouTube",
   text: "Teks",
   image: "Gambar",
+  slideshow: "Slideshow",
 };
 
 const TUGAS_STATUS_LABEL: Record<string, string> = {
@@ -269,16 +275,26 @@ function MaterialCard({ material: m }: { material: MaterialContentRow }) {
 
 function MaterialContentView({ material: m }: { material: MaterialContentRow }) {
   if (m.kind === "text") {
-    return (
-      <p className="whitespace-pre-line rounded-xl bg-muted/40 p-4 text-sm">
-        {m.content || "Belum ada isi materi."}
-      </p>
+    return m.content ? (
+      <div
+        className="rich-text-content rounded-xl bg-muted/40 p-4 text-sm"
+        dangerouslySetInnerHTML={{ __html: m.content }}
+      />
+    ) : (
+      <p className="rounded-xl bg-muted/40 p-4 text-sm">Belum ada isi materi.</p>
     );
   }
   if (m.kind === "image" && m.url) {
     return <img src={m.url} alt={m.title} className="w-full rounded-xl object-cover" />;
   }
   if (m.kind === "video" && m.url) {
+    return (
+      <div className="aspect-video w-full overflow-hidden rounded-xl">
+        <iframe src={m.url} title={m.title} className="h-full w-full" allowFullScreen />
+      </div>
+    );
+  }
+  if (m.kind === "slideshow" && m.url) {
     return (
       <div className="aspect-video w-full overflow-hidden rounded-xl">
         <iframe src={m.url} title={m.title} className="h-full w-full" allowFullScreen />
@@ -370,6 +386,35 @@ function TugasDetailContent({
           <p className="text-xs text-muted-foreground">Capaian: {a.learningObjectiveTitle}</p>
         )}
       </DialogHeader>
+
+      {a.description && (
+        <div
+          className="rich-text-content rounded-xl bg-muted/40 p-3 text-sm"
+          dangerouslySetInnerHTML={{ __html: a.description }}
+        />
+      )}
+
+      {a.attachmentImageUrl && (
+        <div>
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+            Lampiran dari Guru
+          </Label>
+          <ul className="mt-1.5 space-y-1.5">
+            <li className="rounded-lg border px-3 py-1.5 text-sm">
+              <a
+                href={a.attachmentImageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-primary hover:underline"
+              >
+                <Download className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{a.attachmentImageName ?? "Lampiran"}</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      )}
+
       <div className="text-xs text-muted-foreground">Tenggat: {formatDueDate(a.dueAt)}</div>
 
       {locked && a.score != null && (
@@ -415,6 +460,19 @@ function KuisCard({ assignment: a }: { assignment: AssignmentContentRow }) {
   const [open, setOpen] = useState(false);
   const done = a.status === "graded";
 
+  let badgeLabel = "🔴 Belum Dikerjakan";
+  let badgeClass = "bg-red-100 text-red-700";
+  if (done) {
+    badgeLabel = "🟢 Selesai";
+    badgeClass = "bg-emerald-100 text-emerald-700";
+  } else if (a.quizStatus === "nonaktif") {
+    badgeLabel = "⚪ Nonaktif";
+    badgeClass = "bg-zinc-200 text-zinc-700";
+  } else if (a.quizStatus === "selesai") {
+    badgeLabel = "🔵 Waktu Habis";
+    badgeClass = "bg-blue-100 text-blue-700";
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -425,11 +483,9 @@ function KuisCard({ assignment: a }: { assignment: AssignmentContentRow }) {
                 <HelpCircle className="h-5 w-5" />
               </div>
               <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                  done ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
-                }`}
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${badgeClass}`}
               >
-                {done ? "🟢 Selesai" : "🔴 Belum Mulai"}
+                {badgeLabel}
               </span>
             </div>
             <div className="mt-3 line-clamp-2 font-semibold">{a.title}</div>
@@ -455,27 +511,125 @@ function KuisCard({ assignment: a }: { assignment: AssignmentContentRow }) {
   );
 }
 
+function DragDropAnswer({
+  question,
+  answer,
+  onSelect,
+}: {
+  question: StudentQuizQuestion;
+  answer: Record<string, string>;
+  onSelect: (dragId: string, targetId: string) => void;
+}) {
+  const [selectedDragId, setSelectedDragId] = useState<string | null>(null);
+  const matchedTargetIds = new Set(Object.values(answer));
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div className="space-y-2">
+        {question.dragBlocks.map((b) => {
+          const isMatched = !!answer[b.id];
+          const isSelected = selectedDragId === b.id;
+          return (
+            <button
+              key={b.id}
+              type="button"
+              onClick={() => setSelectedDragId(b.id)}
+              className={cn(
+                "w-full rounded-xl border p-2.5 text-left text-sm transition",
+                isSelected && "border-primary bg-primary-soft/30",
+                isMatched && !isSelected && "border-emerald-400 bg-emerald-50",
+              )}
+            >
+              {b.text}
+              {isMatched && (
+                <span className="ml-1.5 text-xs text-emerald-600">
+                  → {question.targetBlocks.find((t) => t.id === answer[b.id])?.text}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <div className="space-y-2">
+        {question.targetBlocks.map((t) => {
+          const isUsed = matchedTargetIds.has(t.id);
+          return (
+            <button
+              key={t.id}
+              type="button"
+              disabled={!selectedDragId}
+              onClick={() => {
+                if (selectedDragId) {
+                  onSelect(selectedDragId, t.id);
+                  setSelectedDragId(null);
+                }
+              }}
+              className={cn(
+                "w-full rounded-xl border p-2.5 text-left text-sm transition disabled:opacity-50",
+                isUsed && "border-emerald-400 bg-emerald-50",
+              )}
+            >
+              {t.text}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function KuisDetailContent({ assignment: a }: { assignment: AssignmentContentRow }) {
   const [data, setData] = useState<StudentQuizData | null>(null);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [mcAnswers, setMcAnswers] = useState<Record<string, string>>({});
+  const [tfAnswers, setTfAnswers] = useState<Record<string, "benar" | "salah">>({});
+  const [ddAnswers, setDdAnswers] = useState<Record<string, Record<string, string>>>({});
+  const [seqOrder, setSeqOrder] = useState<Record<string, string[]>>({});
   const [isPending, startTransition] = useTransition();
 
+  const locked = a.status !== "graded" && a.quizStatus !== "aktif";
+
   useEffect(() => {
+    if (locked) return;
     let cancelled = false;
     fetchQuizForStudent(a.id).then((result) => {
-      if (!cancelled) setData(result);
+      if (cancelled || !result) return;
+      setData(result);
+      const initialSeq: Record<string, string[]> = {};
+      for (const q of result.questions) {
+        if (q.questionType === "sequence") initialSeq[q.id] = q.steps.map((s) => s.id);
+      }
+      setSeqOrder(initialSeq);
     });
     return () => {
       cancelled = true;
     };
-  }, [a.id]);
+  }, [a.id, locked]);
+
+  function moveSeqStep(questionId: string, index: number, direction: "up" | "down") {
+    setSeqOrder((prev) => {
+      const order = prev[questionId] ? [...prev[questionId]] : [];
+      const swapWith = direction === "up" ? index - 1 : index + 1;
+      if (swapWith < 0 || swapWith >= order.length) return prev;
+      [order[index], order[swapWith]] = [order[swapWith], order[index]];
+      return { ...prev, [questionId]: order };
+    });
+  }
+
+  function selectDragTarget(questionId: string, dragId: string, targetId: string) {
+    setDdAnswers((prev) => ({
+      ...prev,
+      [questionId]: { ...(prev[questionId] ?? {}), [dragId]: targetId },
+    }));
+  }
 
   function handleSubmit() {
     if (!data) return;
     const payload = data.questions.map((q) => ({
       questionId: q.id,
-      selectedOptionId: q.questionType === "multiple_choice" ? answers[q.id] : undefined,
-      shortAnswerText: q.questionType === "short_answer" ? answers[q.id] : undefined,
+      selectedOptionId: q.questionType === "multiple_choice" ? mcAnswers[q.id] : undefined,
+      trueFalseAnswer: q.questionType === "true_false" ? tfAnswers[q.id] : undefined,
+      dragDropAnswer: q.questionType === "drag_and_drop" ? ddAnswers[q.id] : undefined,
+      sequenceAnswer: q.questionType === "sequence" ? seqOrder[q.id] : undefined,
     }));
     startTransition(async () => {
       const result = await submitQuizAnswers(a.id, payload);
@@ -490,11 +644,24 @@ function KuisDetailContent({ assignment: a }: { assignment: AssignmentContentRow
     });
   }
 
-  if (!data) {
-    return <p className="text-sm text-muted-foreground">Memuat soal...</p>;
+  if (locked) {
+    return (
+      <div className="space-y-4">
+        <DialogHeader>
+          <DialogTitle>{a.title}</DialogTitle>
+        </DialogHeader>
+        <div className="rounded-2xl bg-muted/40 p-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            {a.quizStatus === "nonaktif"
+              ? "Kuis ini sedang dinonaktifkan oleh guru dan tidak bisa dikerjakan."
+              : "Waktu pengerjaan kuis ini sudah berakhir."}
+          </p>
+        </div>
+      </div>
+    );
   }
 
-  if (data.alreadySubmitted) {
+  if (data?.alreadySubmitted) {
     return (
       <div className="space-y-4">
         <DialogHeader>
@@ -511,13 +678,29 @@ function KuisDetailContent({ assignment: a }: { assignment: AssignmentContentRow
     );
   }
 
-  const allAnswered = data.questions.every((q) => (answers[q.id] ?? "").trim().length > 0);
+  if (!data) {
+    return <p className="text-sm text-muted-foreground">Memuat soal...</p>;
+  }
+
+  const allAnswered = data.questions.every((q) => {
+    if (q.questionType === "multiple_choice") return !!mcAnswers[q.id];
+    if (q.questionType === "true_false") return !!tfAnswers[q.id];
+    if (q.questionType === "drag_and_drop") {
+      const answered = ddAnswers[q.id] ?? {};
+      return q.dragBlocks.every((b) => answered[b.id]);
+    }
+    if (q.questionType === "sequence") return (seqOrder[q.id]?.length ?? 0) === q.steps.length;
+    return false;
+  });
 
   return (
     <div className="space-y-4">
       <DialogHeader>
         <DialogTitle>{a.title}</DialogTitle>
-        <p className="text-xs text-muted-foreground">{data.questions.length} Soal</p>
+        <p className="text-xs text-muted-foreground">
+          {data.questions.length} Soal
+          {data.timerMinutes ? ` · ⏱ Estimasi: ${data.timerMinutes} Menit` : ""}
+        </p>
       </DialogHeader>
       <div className="space-y-4">
         {data.questions.map((q, i) => (
@@ -525,32 +708,103 @@ function KuisDetailContent({ assignment: a }: { assignment: AssignmentContentRow
             <div className="font-medium">
               {i + 1}. {q.questionText}
             </div>
-            {q.questionType === "multiple_choice" ? (
+
+            {q.questionType === "multiple_choice" && (
               <div className="mt-3 space-y-2">
                 {q.options.map((o) => (
                   <label
                     key={o.id}
-                    className={`flex cursor-pointer items-center gap-2 rounded-xl border p-2.5 text-sm transition ${
-                      answers[q.id] === o.id ? "border-primary bg-primary-soft/30" : ""
-                    }`}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-2 rounded-xl border p-2.5 text-sm transition",
+                      mcAnswers[q.id] === o.id && "border-primary bg-primary-soft/30",
+                    )}
                   >
                     <input
                       type="radio"
                       name={q.id}
-                      checked={answers[q.id] === o.id}
-                      onChange={() => setAnswers((prev) => ({ ...prev, [q.id]: o.id }))}
+                      checked={mcAnswers[q.id] === o.id}
+                      onChange={() => setMcAnswers((prev) => ({ ...prev, [q.id]: o.id }))}
                     />
                     {o.text}
                   </label>
                 ))}
               </div>
-            ) : (
-              <input
-                className="mt-3 w-full rounded-xl border bg-background px-3 py-2 text-sm"
-                value={answers[q.id] ?? ""}
-                onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
-                placeholder="Jawabanmu..."
-              />
+            )}
+
+            {q.questionType === "true_false" && (
+              <div className="mt-3 flex gap-2">
+                {(["benar", "salah"] as const).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setTfAnswers((prev) => ({ ...prev, [q.id]: v }))}
+                    className={cn(
+                      "flex-1 rounded-xl border p-2.5 text-sm font-medium transition",
+                      tfAnswers[q.id] === v
+                        ? "border-primary bg-primary-soft/30 text-primary"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {v === "benar" ? "Benar" : "Salah"}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {q.questionType === "drag_and_drop" && (
+              <div className="mt-3 space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Ketuk satu blok kiri, lalu ketuk pasangannya di kanan.
+                </p>
+                <DragDropAnswer
+                  question={q}
+                  answer={ddAnswers[q.id] ?? {}}
+                  onSelect={(dragId, targetId) => selectDragTarget(q.id, dragId, targetId)}
+                />
+              </div>
+            )}
+
+            {q.questionType === "sequence" && (
+              <div className="mt-3 space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Urutkan langkah dengan tombol panah di bawah ini.
+                </p>
+                {(seqOrder[q.id] ?? []).map((stepId, idx) => {
+                  const step = q.steps.find((s) => s.id === stepId);
+                  if (!step) return null;
+                  return (
+                    <div
+                      key={stepId}
+                      className="flex items-center gap-2 rounded-xl border p-2.5 text-sm"
+                    >
+                      <div className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary-soft/50 text-xs font-bold">
+                        {idx + 1}
+                      </div>
+                      <span className="flex-1">{step.text}</span>
+                      <div className="flex shrink-0 gap-1">
+                        <button
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={() => moveSeqStep(q.id, idx, "up")}
+                          className="grid h-7 w-7 place-items-center rounded-lg border disabled:opacity-30"
+                          aria-label="Pindah ke atas"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          disabled={idx === (seqOrder[q.id]?.length ?? 0) - 1}
+                          onClick={() => moveSeqStep(q.id, idx, "down")}
+                          className="grid h-7 w-7 place-items-center rounded-lg border disabled:opacity-30"
+                          aria-label="Pindah ke bawah"
+                        >
+                          ↓
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         ))}

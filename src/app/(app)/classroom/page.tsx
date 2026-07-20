@@ -49,9 +49,10 @@ export default async function ClassroomPage() {
         icon="🏫"
         title="Kelola Pembelajaran"
         subtitle="Materi, tugas, dan kuis untuk kelas & mapel yang Anda ajar"
+        rounded="blunt"
       />
       {combos.length === 0 ? (
-        <Card className="rounded-3xl border-0 p-10 text-center shadow-soft">
+        <Card className="rounded-md border-0 p-10 text-center shadow-soft">
           <p className="mx-auto max-w-md text-sm text-muted-foreground">
             Anda belum ditugaskan mengajar kelas/mata pelajaran manapun. Hubungi admin untuk
             penugasan lewat Master Kelas.
@@ -59,10 +60,16 @@ export default async function ClassroomPage() {
         </Card>
       ) : (
         <Tabs defaultValue="materi">
-          <TabsList>
-            <TabsTrigger value="materi">Materi & Modul Ajar</TabsTrigger>
-            <TabsTrigger value="tugas">Tugas & Proyek</TabsTrigger>
-            <TabsTrigger value="kuis">Kuis & Ujian</TabsTrigger>
+          <TabsList className="scrollbar-hide max-w-full justify-start overflow-x-auto rounded-md">
+            <TabsTrigger value="materi" className="shrink-0 rounded-md text-xs sm:text-sm">
+              Materi & Modul Ajar
+            </TabsTrigger>
+            <TabsTrigger value="tugas" className="shrink-0 rounded-md text-xs sm:text-sm">
+              Tugas & Proyek
+            </TabsTrigger>
+            <TabsTrigger value="kuis" className="shrink-0 rounded-md text-xs sm:text-sm">
+              Kuis & Ujian
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="materi" className="mt-4">
             <MaterialsTab

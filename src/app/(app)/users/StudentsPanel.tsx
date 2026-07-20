@@ -178,7 +178,7 @@ export function StudentsPanel({
                         <AlertDialogTitle>Hapus akun {editing.name}?</AlertDialogTitle>
                         <AlertDialogDescription>
                           Aksi ini tidak bisa dibatalkan. Siswa hanya bisa dihapus jika belum punya
-                          tugas, nilai, lencana, riwayat bintang, atau penukaran hadiah.
+                          tugas dikumpulkan atau nilai.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>

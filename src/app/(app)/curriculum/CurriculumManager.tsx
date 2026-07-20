@@ -115,8 +115,8 @@ export function CurriculumManager({
 
   return (
     <div className="space-y-6">
-      <Card className="rounded-3xl border-0 p-6 shadow-soft">
-        <Label>Kelas & Mata Pelajaran</Label>
+      <Card className="@container rounded-md border-0 p-4 shadow-soft @sm:p-6">
+        <Label className="text-xs">Kelas & Mata Pelajaran</Label>
         <Select value={selectedKey} onValueChange={setSelectedKey}>
           <SelectTrigger className="mt-1 w-full sm:w-80">
             <SelectValue />
@@ -134,22 +134,26 @@ export function CurriculumManager({
         </Select>
       </Card>
 
-      <Card className="rounded-3xl border-0 p-6 shadow-soft">
-        <h2 className="font-display text-xl font-bold">Capaian Pembelajaran (CP)</h2>
+      <Card className="@container rounded-md border-0 p-4 shadow-soft @sm:p-6">
+        <h2 className="font-display text-base font-bold @sm:text-lg @md:text-xl">
+          Capaian Pembelajaran (CP)
+        </h2>
         <Textarea
           value={cpText}
           onChange={(e) => setCpText(e.target.value)}
           rows={5}
-          className="mt-3"
+          className="mt-3 text-sm"
           placeholder="Tuliskan capaian pembelajaran untuk kelas & mapel ini..."
         />
-        <Button className="mt-3 rounded-xl" disabled={isPending} onClick={handleSaveCp}>
+        <Button className="mt-3 rounded-md text-sm" disabled={isPending} onClick={handleSaveCp}>
           {isPending ? "Menyimpan..." : "Simpan CP"}
         </Button>
       </Card>
 
-      <Card className="rounded-3xl border-0 p-6 shadow-soft">
-        <h2 className="font-display text-xl font-bold">Alur Tujuan Pembelajaran (ATP)</h2>
+      <Card className="@container rounded-md border-0 p-4 shadow-soft @sm:p-6">
+        <h2 className="font-display text-base font-bold @sm:text-lg @md:text-xl">
+          Alur Tujuan Pembelajaran (ATP)
+        </h2>
         <div className="mt-4 space-y-2">
           {plan.objectives.map((o, i) => (
             <ObjectiveRow
@@ -182,7 +186,7 @@ export function CurriculumManager({
             }}
           />
           <Button
-            className="shrink-0 rounded-xl"
+            className="shrink-0 rounded-md text-sm"
             disabled={isPending || !newTitle.trim()}
             onClick={handleAddObjective}
           >
@@ -217,8 +221,8 @@ function ObjectiveRow({
   const [editing, setEditing] = useState(false);
 
   return (
-    <div className="flex items-center gap-2 rounded-xl border p-3">
-      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary-soft/50 text-xs font-bold">
+    <div className="@container flex items-center gap-1.5 rounded-md border p-2 @xs:gap-2 @xs:p-2.5 @sm:p-3">
+      <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary-soft/50 text-[11px] font-bold @xs:h-8 @xs:w-8 @xs:text-xs">
         {index + 1}
       </div>
       {editing ? (
@@ -230,45 +234,45 @@ function ObjectiveRow({
             if (title.trim() && title !== objective.title) onUpdate(objective.id, title.trim());
           }}
           autoFocus
-          className="flex-1"
+          className="min-w-0 flex-1 text-xs @xs:text-sm"
         />
       ) : (
         <button
           type="button"
-          className="flex-1 truncate text-left text-sm font-medium hover:underline"
+          className="min-w-0 flex-1 truncate text-left text-xs font-medium hover:underline @xs:text-sm"
           onClick={() => setEditing(true)}
         >
           {objective.title}
         </button>
       )}
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex shrink-0 items-center gap-0.5 @xs:gap-1">
         <Button
           size="icon"
           variant="ghost"
-          className="h-8 w-8"
+          className="h-7 w-7 @xs:h-8 @xs:w-8"
           disabled={disabled || isFirst}
           onClick={() => onMove(objective.id, "up")}
         >
-          <ArrowUp className="h-4 w-4" />
+          <ArrowUp className="h-3.5 w-3.5 @xs:h-4 @xs:w-4" />
         </Button>
         <Button
           size="icon"
           variant="ghost"
-          className="h-8 w-8"
+          className="h-7 w-7 @xs:h-8 @xs:w-8"
           disabled={disabled || isLast}
           onClick={() => onMove(objective.id, "down")}
         >
-          <ArrowDown className="h-4 w-4" />
+          <ArrowDown className="h-3.5 w-3.5 @xs:h-4 @xs:w-4" />
         </Button>
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button
               size="icon"
               variant="ghost"
-              className="h-8 w-8 text-destructive"
+              className="h-7 w-7 text-destructive @xs:h-8 @xs:w-8"
               disabled={disabled}
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-3.5 w-3.5 @xs:h-4 @xs:w-4" />
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>

@@ -6,14 +6,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RichTextEditor } from "@/components/RichTextEditor";
+import { ExpandRegion } from "@/components/ExpandRegion";
 import {
   Select,
   SelectContent,
@@ -32,38 +27,55 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { FileText, Mic, Camera, Type, Trash2, ChevronDown } from "lucide-react";
+import {
+  FileText,
+  Camera,
+  Type,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  EyeOff,
+  Eye,
+  Paperclip,
+  Download,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TeacherClassSubject } from "@/lib/data/teaching";
 import type { LearningObjectiveRow } from "@/lib/data/curriculum";
-import type { AssignmentKind, AssignmentRow } from "@/lib/data/classroom";
-import { createAssignment, updateAssignment, deleteAssignment } from "./actions";
+import type { AssignmentMethod, AssignmentRow } from "@/lib/data/classroom";
+import { ASSIGNMENT_MAX_PHOTO_MB } from "@/lib/assignmentConstants";
+import {
+  createAssignment,
+  updateAssignment,
+  deleteAssignment,
+  setAssignmentActive,
+  removeAssignmentAttachmentImage,
+} from "./actions";
 
 function comboKey(classId: string, subjectId: string) {
   return `${classId}:${subjectId}`;
 }
 
-const KIND_LABEL: Record<AssignmentKind, string> = {
-  essay: "Esai",
-  photo: "Foto",
-  audio: "Suara",
+const METHOD_LABEL: Record<AssignmentMethod, string> = {
   text: "Teks",
+  photo: "Upload Foto",
 };
 
-const KIND_ICON: Record<AssignmentKind, typeof FileText> = {
-  essay: FileText,
-  photo: Camera,
-  audio: Mic,
-  text: Type,
-};
+const ADD_ASSIGNMENT_KEY = "__add_assignment__";
+
+function methodIcon(methods: AssignmentMethod[]) {
+  if (methods.length === 1 && methods[0] === "photo") return Camera;
+  if (methods.length === 1 && methods[0] === "text") return Type;
+  return FileText;
+}
 
 function formatDueDate(dueAt: string | null): string | null {
   if (!dueAt) return null;
-  return new Date(dueAt).toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const d = new Date(dueAt);
+  const date = d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+  const time = d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+  return `${date}, ${time}`;
 }
 
 export function AssignmentsTab({
@@ -76,44 +88,62 @@ export function AssignmentsTab({
   objectivesByKey: Record<string, LearningObjectiveRow[]>;
 }) {
   const [selectedKey, setSelectedKey] = useState(comboKey(combos[0].classId, combos[0].subjectId));
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const selectedCombo = combos.find((c) => comboKey(c.classId, c.subjectId) === selectedKey)!;
   const assignments = assignmentsByKey[selectedKey] ?? [];
   const objectives = objectivesByKey[selectedKey] ?? [];
 
+  function toggle(key: string) {
+    setExpandedKey((current) => (current === key ? null : key));
+  }
+
   return (
     <div className="space-y-6">
-      <Card className="rounded-3xl border-0 p-6 shadow-soft">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <Label>Kelas & Mata Pelajaran</Label>
-            <Select value={selectedKey} onValueChange={setSelectedKey}>
-              <SelectTrigger className="mt-1 w-full sm:w-80">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {combos.map((c) => (
-                  <SelectItem
-                    key={comboKey(c.classId, c.subjectId)}
-                    value={comboKey(c.classId, c.subjectId)}
-                  >
-                    {c.className} · {c.subjectName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <AddAssignmentDialog
-            classId={selectedCombo.classId}
-            subjectId={selectedCombo.subjectId}
-            objectives={objectives}
-          />
+      <Card className="@container rounded-md border-0 p-4 shadow-soft @sm:p-6">
+        <div>
+          <Label className="text-xs">Kelas & Mata Pelajaran</Label>
+          <Select
+            value={selectedKey}
+            onValueChange={(v) => {
+              setSelectedKey(v);
+              setExpandedKey(null);
+            }}
+          >
+            <SelectTrigger className="mt-1 w-full sm:w-80">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {combos.map((c) => (
+                <SelectItem
+                  key={comboKey(c.classId, c.subjectId)}
+                  value={comboKey(c.classId, c.subjectId)}
+                >
+                  {c.className} · {c.subjectName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </Card>
 
-      <Card className="rounded-3xl border-0 p-2 shadow-soft">
+      <AddAssignmentCard
+        classId={selectedCombo.classId}
+        subjectId={selectedCombo.subjectId}
+        objectives={objectives}
+        isExpanded={expandedKey === ADD_ASSIGNMENT_KEY}
+        onToggle={() => toggle(ADD_ASSIGNMENT_KEY)}
+      />
+
+      <Card className="rounded-md border-0 p-2 shadow-soft">
         <div className="space-y-1">
           {assignments.map((a) => (
-            <AssignmentListItem key={a.id} assignment={a} objectives={objectives} />
+            <AssignmentListItem
+              key={a.id}
+              assignment={a}
+              objectives={objectives}
+              isExpanded={expandedKey === a.id}
+              onToggle={() => toggle(a.id)}
+            />
           ))}
           {assignments.length === 0 && (
             <p className="p-4 text-sm text-muted-foreground">Belum ada tugas.</p>
@@ -124,28 +154,88 @@ export function AssignmentsTab({
   );
 }
 
-function AddAssignmentDialog({
+function SectionCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="@container space-y-3 rounded-md border p-4">
+      <div>
+        <h4 className="text-sm font-semibold">{title}</h4>
+        {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function AddAssignmentCard({
   classId,
   subjectId,
   objectives,
+  isExpanded,
+  onToggle,
 }: {
   classId: string;
   subjectId: string;
   objectives: LearningObjectiveRow[];
+  isExpanded: boolean;
+  onToggle: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [methods, setMethods] = useState<AssignmentMethod[]>(["text"]);
+  const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("23:59");
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [editorKey, setEditorKey] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
-  function handleSubmit(formData: FormData) {
+  function toggleMethod(method: AssignmentMethod, checked: boolean) {
+    setMethods((prev) =>
+      checked ? [...prev.filter((m) => m !== method), method] : prev.filter((m) => m !== method),
+    );
+  }
+
+  function resetForm() {
+    formRef.current?.reset();
+    setTitle("");
+    setDescription("");
+    setMethods(["text"]);
+    setDueDate("");
+    setDueTime("23:59");
+    setImageFile(null);
+    setEditorKey((k) => k + 1);
+  }
+
+  function handleSubmit(status: "draft" | "published") {
+    if (!formRef.current) return;
+    if (!formRef.current.reportValidity()) return;
+    if (methods.length === 0) {
+      toast.error("Pilih minimal satu teknik pengumpulan.");
+      return;
+    }
+
+    const formData = new FormData(formRef.current);
     formData.set("class_id", classId);
     formData.set("subject_id", subjectId);
+    formData.set("status", status);
+    for (const m of methods) formData.append("allowed_methods", m);
+    if (imageFile) formData.set("attachment_image", imageFile);
+
     startTransition(async () => {
       const result = await createAssignment(formData);
       if (result.ok) {
         toast.success(result.message);
-        setOpen(false);
-        formRef.current?.reset();
+        resetForm();
+        onToggle();
       } else {
         toast.error(result.message);
       }
@@ -153,108 +243,263 @@ function AddAssignmentDialog({
   }
 
   const noObjectives = objectives.length === 0;
+  const dueDateLabel = dueDate
+    ? new Date(`${dueDate}T00:00:00`).toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : null;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="rounded-lg">
-          + Tambah Tugas
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Tambah Tugas</DialogTitle>
-        </DialogHeader>
-        {noObjectives ? (
-          <p className="text-sm text-muted-foreground">
-            Belum ada Tujuan Pembelajaran (TP) untuk kelas & mapel ini. Isi dulu lewat menu Kelola
-            Kurikulum.
+    <Card className="@container overflow-hidden rounded-md border-0 shadow-soft">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-4 @sm:p-6">
+        <div>
+          <h3 className="font-display text-base font-bold @sm:text-lg @md:text-xl">
+            Tambah Tugas Pembelajaran
+          </h3>
+          <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+            Buat tugas lengkap dengan instruksi, teknik pengumpulan, jadwal, dan lampiran pendukung
+            untuk siswa.
           </p>
-        ) : (
-          <form ref={formRef} action={handleSubmit} className="space-y-3">
-            <div>
-              <Label>Judul Tugas</Label>
-              <Input name="title" className="mt-1" required />
-            </div>
-            <div>
-              <Label>Jenis Tugas</Label>
-              <Select name="kind" defaultValue="text" required>
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="text">Teks</SelectItem>
-                  <SelectItem value="essay">Esai</SelectItem>
-                  <SelectItem value="photo">Foto</SelectItem>
-                  <SelectItem value="audio">Suara</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Format hasil kerja yang diharapkan dari siswa.
-              </p>
-            </div>
-            <div>
-              <Label>Instruksi Tugas</Label>
-              <Textarea name="description" rows={5} className="mt-1" />
-            </div>
-            <div>
-              <Label>Tenggat Waktu</Label>
-              <Input name="due_at" type="date" className="mt-1" />
-            </div>
-            <div>
-              <Label>Tujuan Pembelajaran (TP)</Label>
-              <Select name="learning_objective_id" required>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Pilih TP" />
-                </SelectTrigger>
-                <SelectContent>
-                  {objectives.map((o) => (
-                    <SelectItem key={o.id} value={o.id}>
-                      {o.title}
-                    </SelectItem>
+        </div>
+        <Button type="button" variant="outline" className="shrink-0 rounded-md" onClick={onToggle}>
+          {isExpanded ? "Tutup Form" : "Buka Form"}
+          {isExpanded ? (
+            <ChevronUp className="ml-1.5 h-4 w-4" />
+          ) : (
+            <ChevronDown className="ml-1.5 h-4 w-4" />
+          )}
+        </Button>
+      </div>
+
+      <ExpandRegion expanded={isExpanded}>
+        <div className="space-y-4 border-t px-4 pb-4 pt-4 @sm:px-6 @sm:pb-6">
+          {noObjectives ? (
+            <p className="text-sm text-muted-foreground">
+              Belum ada Tujuan Pembelajaran (TP) untuk kelas & mapel ini. Isi dulu lewat menu Kelola
+              Kurikulum.
+            </p>
+          ) : (
+            <form ref={formRef} className="space-y-4">
+              {/* 1. Informasi Dasar Tugas */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label>Judul Tugas *</Label>
+                  <Input
+                    name="title"
+                    className="mt-1"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label>Tujuan Pembelajaran (TP) *</Label>
+                  <Select name="learning_objective_id" required>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Pilih TP" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {objectives.map((o) => (
+                        <SelectItem key={o.id} value={o.id}>
+                          {o.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label>Deskripsi / Instruksi Tugas</Label>
+                <div className="mt-1">
+                  <RichTextEditor
+                    key={editorKey}
+                    name="description"
+                    variant="simple"
+                    placeholder="Tulis instruksi tugas untuk siswa di sini..."
+                    onChange={setDescription}
+                  />
+                </div>
+              </div>
+
+              {/* 2. Pengaturan Pengumpulan */}
+              <SectionCard
+                title="Pengaturan Pengumpulan"
+                description="Pilih satu atau lebih metode pengumpulan tugas."
+              >
+                <div className="flex flex-wrap gap-4">
+                  {(["text", "photo"] as AssignmentMethod[]).map((m) => (
+                    <label key={m} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={methods.includes(m)}
+                        onCheckedChange={(checked) => toggleMethod(m, checked === true)}
+                      />
+                      {METHOD_LABEL[m]}
+                    </label>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button type="submit" className="w-full rounded-xl" disabled={isPending}>
-              {isPending ? "Menyimpan..." : "Simpan Tugas"}
-            </Button>
-          </form>
-        )}
-      </DialogContent>
-    </Dialog>
+                </div>
+                {methods.includes("photo") && (
+                  <p className="text-xs text-muted-foreground">
+                    Maksimal ukuran foto: {ASSIGNMENT_MAX_PHOTO_MB} MB (otomatis)
+                  </p>
+                )}
+              </SectionCard>
+
+              {/* 3. Jadwal Tugas */}
+              <SectionCard title="Jadwal Tugas">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label>Batas Pengumpulan *</Label>
+                    <Input
+                      name="due_date"
+                      type="date"
+                      className="mt-1"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label>Jam Batas Pengumpulan *</Label>
+                    <Input
+                      name="due_time"
+                      type="time"
+                      className="mt-1"
+                      value={dueTime}
+                      onChange={(e) => setDueTime(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              </SectionCard>
+
+              {/* 4. Lampiran Guru (Opsional) */}
+              <SectionCard
+                title="Lampiran Guru (Opsional)"
+                description="Siswa bisa mengunduh lampiran ini sebelum mengerjakan. Maksimal 1 gambar."
+              >
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const selected = e.target.files?.[0] ?? null;
+                    e.target.value = "";
+                    if (selected) setImageFile(selected);
+                  }}
+                />
+                {imageFile ? (
+                  <ul className="space-y-1.5">
+                    <PendingFileRow name={imageFile.name} onRemove={() => setImageFile(null)} />
+                  </ul>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-md"
+                    onClick={() => imageInputRef.current?.click()}
+                  >
+                    <Paperclip className="mr-1.5 h-4 w-4" /> Upload Gambar
+                  </Button>
+                )}
+              </SectionCard>
+
+              {/* 5. Preview Ringkas */}
+              <div className="rounded-md bg-primary-soft/20 p-4">
+                <h4 className="font-display text-sm font-bold">Ringkasan Tugas</h4>
+                <div className="mt-2 space-y-1 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Judul: </span>
+                    {title.trim() || "-"}
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Metode: </span>
+                    {methods.length > 0
+                      ? methods.map((m) => `✓ ${METHOD_LABEL[m]}`).join("  ")
+                      : "-"}
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Deadline: </span>
+                    {dueDateLabel ? `${dueDateLabel} - ${dueTime}` : "-"}
+                  </div>
+                </div>
+              </div>
+
+              {/* 6. Tombol Aksi */}
+              <div className="flex flex-wrap justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="rounded-md"
+                  disabled={isPending}
+                  onClick={() => handleSubmit("draft")}
+                >
+                  {isPending ? "Menyimpan..." : "Simpan Draft"}
+                </Button>
+                <Button
+                  type="button"
+                  className="rounded-md"
+                  disabled={isPending}
+                  onClick={() => handleSubmit("published")}
+                >
+                  {isPending ? "Menyimpan..." : "Publikasikan Tugas"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </div>
+      </ExpandRegion>
+    </Card>
+  );
+}
+
+function PendingFileRow({ name, onRemove }: { name: string; onRemove: () => void }) {
+  return (
+    <li className="flex items-center justify-between gap-2 rounded-md border bg-background px-3 py-1.5 text-sm">
+      <span className="truncate">{name}</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="shrink-0 text-muted-foreground hover:text-destructive"
+        aria-label={`Hapus ${name}`}
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </li>
   );
 }
 
 function AssignmentListItem({
   assignment,
   objectives,
+  isExpanded,
+  onToggle,
 }: {
   assignment: AssignmentRow;
   objectives: LearningObjectiveRow[];
+  isExpanded: boolean;
+  onToggle: () => void;
 }) {
-  const Icon = KIND_ICON[assignment.kind];
+  const Icon = methodIcon(assignment.allowedMethods);
   const [isPending, startTransition] = useTransition();
-  const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(assignment.title);
   const [description, setDescription] = useState(assignment.description ?? "");
-  const [dueAt, setDueAt] = useState(assignment.dueAt ? assignment.dueAt.slice(0, 10) : "");
   const [learningObjectiveId, setLearningObjectiveId] = useState(
     assignment.learningObjectiveId ?? "",
   );
+  const [editorKey, setEditorKey] = useState(0);
 
-  function resetFields() {
+  function handleToggle() {
+    setEditing(false);
     setTitle(assignment.title);
     setDescription(assignment.description ?? "");
-    setDueAt(assignment.dueAt ? assignment.dueAt.slice(0, 10) : "");
     setLearningObjectiveId(assignment.learningObjectiveId ?? "");
-  }
-
-  function toggleExpanded() {
-    setExpanded((v) => !v);
-    setEditing(false);
-    resetFields();
+    setEditorKey((k) => k + 1);
+    onToggle();
   }
 
   function handleSaveChanges() {
@@ -262,7 +507,6 @@ function AssignmentListItem({
     formData.set("id", assignment.id);
     formData.set("title", title);
     formData.set("description", description);
-    formData.set("due_at", dueAt);
     formData.set("learning_objective_id", learningObjectiveId);
     startTransition(async () => {
       const result = await updateAssignment(formData);
@@ -283,30 +527,55 @@ function AssignmentListItem({
     });
   }
 
+  function handleToggleActive() {
+    startTransition(async () => {
+      const result = await setAssignmentActive(assignment.id, !assignment.isPublished);
+      if (result.ok) toast.success(result.message);
+      else toast.error(result.message);
+    });
+  }
+
+  function handleRemoveAttachmentImage() {
+    startTransition(async () => {
+      const result = await removeAssignmentAttachmentImage(assignment.id);
+      if (result.ok) toast.success(result.message);
+      else toast.error(result.message);
+    });
+  }
+
   const dueLabel = formatDueDate(assignment.dueAt);
 
   return (
-    <div className="rounded-2xl border">
+    <div className="@container rounded-md border">
       <button
         type="button"
-        onClick={toggleExpanded}
+        onClick={handleToggle}
         className="flex w-full items-center gap-2 p-3 text-left hover:bg-muted/40"
       >
-        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary-soft/50">
-          <Icon className="h-4 w-4" />
+        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-primary-soft/50 @sm:h-9 @sm:w-9">
+          <Icon className="h-3.5 w-3.5 @sm:h-4 @sm:w-4" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate font-semibold">{assignment.title}</div>
+          <div className="truncate text-sm font-semibold">{assignment.title}</div>
           <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="rounded-full bg-muted px-2 py-0.5">{KIND_LABEL[assignment.kind]}</span>
+            {assignment.allowedMethods.map((m) => (
+              <span key={m} className="rounded-md bg-muted px-2 py-0.5">
+                {METHOD_LABEL[m]}
+              </span>
+            ))}
             {assignment.learningObjectiveTitle && (
-              <span className="truncate rounded-full bg-muted px-2 py-0.5">
+              <span className="truncate rounded-md bg-muted px-2 py-0.5">
                 {assignment.learningObjectiveTitle}
               </span>
             )}
             {dueLabel && (
-              <span className="rounded-full bg-warning/15 px-2 py-0.5 text-warning">
+              <span className="rounded-md bg-warning/15 px-2 py-0.5 text-warning">
                 Tenggat {dueLabel}
+              </span>
+            )}
+            {!assignment.isPublished && (
+              <span className="rounded-md bg-amber-100 px-2 py-0.5 font-medium text-amber-700">
+                Nonaktif
               </span>
             )}
           </div>
@@ -314,36 +583,18 @@ function AssignmentListItem({
         <ChevronDown
           className={cn(
             "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-            expanded && "rotate-180",
+            isExpanded && "rotate-180",
           )}
         />
       </button>
 
-      {expanded && (
+      <ExpandRegion expanded={isExpanded}>
         <div className="space-y-3 border-t p-4">
           {editing ? (
             <div className="space-y-3">
               <div>
                 <Label>Judul Tugas</Label>
                 <Input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1" />
-              </div>
-              <div>
-                <Label>Instruksi Tugas</Label>
-                <Textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={5}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label>Tenggat Waktu</Label>
-                <Input
-                  type="date"
-                  value={dueAt}
-                  onChange={(e) => setDueAt(e.target.value)}
-                  className="mt-1"
-                />
               </div>
               <div>
                 <Label>Tujuan Pembelajaran (TP)</Label>
@@ -360,18 +611,75 @@ function AssignmentListItem({
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label>Deskripsi / Instruksi Tugas</Label>
+                <div className="mt-1">
+                  <RichTextEditor
+                    key={editorKey}
+                    name="description"
+                    variant="simple"
+                    defaultValue={assignment.description ?? ""}
+                    placeholder="Tulis instruksi tugas untuk siswa di sini..."
+                    onChange={setDescription}
+                  />
+                </div>
+              </div>
             </div>
           ) : (
-            <p className="whitespace-pre-line rounded-xl bg-muted/40 p-3 text-sm text-muted-foreground">
-              {assignment.description || "Tidak ada instruksi tambahan."}
-            </p>
+            <>
+              {assignment.description ? (
+                <div
+                  className="rich-text-content rounded-md bg-muted/40 p-3 text-sm text-muted-foreground"
+                  dangerouslySetInnerHTML={{ __html: assignment.description }}
+                />
+              ) : (
+                <p className="rounded-md bg-muted/40 p-3 text-sm text-muted-foreground">
+                  Tidak ada instruksi tambahan.
+                </p>
+              )}
+              {assignment.allowedMethods.includes("photo") && (
+                <p className="text-xs text-muted-foreground">
+                  Maksimal ukuran foto: {ASSIGNMENT_MAX_PHOTO_MB} MB
+                </p>
+              )}
+              {assignment.attachmentImageUrl && (
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Lampiran
+                  </Label>
+                  <ul className="mt-1.5 space-y-1.5">
+                    <li className="flex items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-sm">
+                      <a
+                        href={assignment.attachmentImageUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex min-w-0 items-center gap-1.5 text-primary hover:underline"
+                      >
+                        <Download className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">
+                          {assignment.attachmentImageName ?? "Lampiran"}
+                        </span>
+                      </a>
+                      <button
+                        type="button"
+                        onClick={handleRemoveAttachmentImage}
+                        className="shrink-0 text-muted-foreground hover:text-destructive"
+                        aria-label="Hapus lampiran"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              )}
+            </>
           )}
 
           <div className="flex flex-wrap gap-2">
             {editing ? (
               <Button
                 size="sm"
-                className="rounded-lg"
+                className="rounded-md"
                 disabled={isPending || !title.trim() || !learningObjectiveId}
                 onClick={handleSaveChanges}
               >
@@ -381,15 +689,32 @@ function AssignmentListItem({
               <Button
                 size="sm"
                 variant="outline"
-                className="rounded-lg"
+                className="rounded-md"
                 onClick={() => setEditing(true)}
               >
                 Edit
               </Button>
             )}
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-md"
+              disabled={isPending}
+              onClick={handleToggleActive}
+            >
+              {assignment.isPublished ? (
+                <>
+                  <EyeOff className="mr-1.5 h-4 w-4" /> Nonaktifkan
+                </>
+              ) : (
+                <>
+                  <Eye className="mr-1.5 h-4 w-4" /> Aktifkan
+                </>
+              )}
+            </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button size="sm" variant="outline" className="rounded-lg text-destructive">
+                <Button size="sm" variant="outline" className="rounded-md text-destructive">
                   <Trash2 className="mr-1.5 h-4 w-4" /> Hapus
                 </Button>
               </AlertDialogTrigger>
@@ -409,7 +734,7 @@ function AssignmentListItem({
             </AlertDialog>
           </div>
         </div>
-      )}
+      </ExpandRegion>
     </div>
   );
 }

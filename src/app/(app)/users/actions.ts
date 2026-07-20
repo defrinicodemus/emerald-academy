@@ -71,32 +71,14 @@ export async function updateStudent(formData: FormData): Promise<Result> {
 
 export async function deleteStudent(id: string): Promise<Result> {
   const supabase = await createClient();
-  const [
-    { count: submissions },
-    { count: grades },
-    { count: badges },
-    { count: stars },
-    { count: redemptions },
-  ] = await Promise.all([
+  const [{ count: submissions }, { count: grades }] = await Promise.all([
     supabase.from("submissions").select("id", { count: "exact", head: true }).eq("student_id", id),
     supabase.from("grades").select("id", { count: "exact", head: true }).eq("student_id", id),
-    supabase
-      .from("student_badges")
-      .select("id", { count: "exact", head: true })
-      .eq("student_id", id),
-    supabase.from("stars_ledger").select("id", { count: "exact", head: true }).eq("student_id", id),
-    supabase
-      .from("reward_redemptions")
-      .select("id", { count: "exact", head: true })
-      .eq("student_id", id),
   ]);
 
   const blockers: string[] = [];
   if (submissions) blockers.push(`${submissions} tugas dikumpulkan`);
   if (grades) blockers.push(`${grades} nilai`);
-  if (badges) blockers.push(`${badges} lencana`);
-  if (stars) blockers.push(`${stars} riwayat bintang`);
-  if (redemptions) blockers.push(`${redemptions} penukaran hadiah`);
   if (blockers.length > 0) {
     return { ok: false, message: `Tidak bisa dihapus — masih ada ${blockers.join(", ")}.` };
   }

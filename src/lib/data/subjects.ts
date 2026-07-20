@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { computeQuizStatus, type QuizStatus } from "@/lib/quizStatus";
 
 export type AssignmentStatus = "belum" | "dikerjakan" | "submitted" | "graded";
 
@@ -17,6 +19,7 @@ export interface AssignmentContentRow {
   id: string;
   title: string;
   kind: string;
+  description: string | null;
   dueAt: string | null;
   learningObjectiveTitle: string | null;
   status: AssignmentStatus;
@@ -25,6 +28,10 @@ export interface AssignmentContentRow {
   submissionContent: string | null;
   questionCount: number;
   createdAt: string;
+  attachmentImageUrl: string | null;
+  attachmentImageName: string | null;
+  isActive: boolean;
+  quizStatus: QuizStatus;
 }
 
 export function appliesToGrade(
@@ -70,7 +77,7 @@ export async function getSubjectsExplorerData(classId: string | null, studentId:
       supabase
         .from("assignments")
         .select(
-          "id, subject_id, title, kind, due_at, learning_objective_id, learning_objectives(title), created_at",
+          "id, subject_id, title, kind, description, due_at, learning_objective_id, learning_objectives(title), created_at, attachment_image_url, attachment_image_name, is_active",
         )
         .eq("class_id", classId)
         .eq("is_published", true)
@@ -99,8 +106,15 @@ export async function getSubjectsExplorerData(classId: string | null, studentId:
               content_url: string | null;
             }[],
           }),
+      // Question count is non-sensitive metadata (no question content), so use the admin
+      // client to bypass the is_active-gated RLS — a nonaktif quiz should still show its
+      // real question count on the card even though its content stays inaccessible.
       kuisIds.length > 0
-        ? supabase.from("quiz_questions").select("assignment_id").in("assignment_id", kuisIds)
+        ? createAdminClient()
+            .from("quiz_questions")
+            .select("assignment_id")
+            .eq("is_active", true)
+            .in("assignment_id", kuisIds)
         : Promise.resolve({ data: [] as { assignment_id: string }[] }),
     ]);
 
@@ -133,6 +147,7 @@ export async function getSubjectsExplorerData(classId: string | null, studentId:
         id: a.id,
         title: a.title,
         kind: a.kind,
+        description: a.description,
         dueAt: a.due_at,
         learningObjectiveTitle:
           (a.learning_objectives as unknown as { title: string } | null)?.title ?? null,
@@ -142,6 +157,10 @@ export async function getSubjectsExplorerData(classId: string | null, studentId:
         submissionContent: sub?.content_url ?? null,
         questionCount: questionCountByAssignment.get(a.id) ?? 0,
         createdAt: a.created_at,
+        attachmentImageUrl: a.attachment_image_url,
+        attachmentImageName: a.attachment_image_name,
+        isActive: a.is_active,
+        quizStatus: computeQuizStatus(true, a.is_active, a.due_at),
       };
       const bucket = a.kind === "quiz" ? kuisBySubject : tugasBySubject;
       (bucket[a.subject_id] ??= []).push(row);
@@ -151,7 +170,14 @@ export async function getSubjectsExplorerData(classId: string | null, studentId:
   return { subjects: visibleSubjects, materialsBySubject, tugasBySubject, kuisBySubject };
 }
 
+export type StudentQuestionType = "multiple_choice" | "true_false" | "drag_and_drop" | "sequence";
+
 export interface StudentQuizOption {
+  id: string;
+  text: string;
+}
+
+export interface StudentQuizBlock {
   id: string;
   text: string;
 }
@@ -159,14 +185,28 @@ export interface StudentQuizOption {
 export interface StudentQuizQuestion {
   id: string;
   questionText: string;
-  questionType: "multiple_choice" | "short_answer";
+  questionType: StudentQuestionType;
+  points: number;
   options: StudentQuizOption[];
+  dragBlocks: StudentQuizBlock[];
+  targetBlocks: StudentQuizBlock[];
+  steps: StudentQuizBlock[];
 }
 
 export interface StudentQuizData {
   questions: StudentQuizQuestion[];
   alreadySubmitted: boolean;
   score: number | null;
+  timerMinutes: number | null;
+}
+
+function shuffle<T>(items: T[]): T[] {
+  const arr = items.slice();
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }
 
 export async function getQuizForStudent(
@@ -174,13 +214,15 @@ export async function getQuizForStudent(
   studentId: string,
 ): Promise<StudentQuizData> {
   const supabase = await createClient();
-  const [{ data: questions }, { data: submission }] = await Promise.all([
+  const [{ data: assignment }, { data: questions }, { data: submission }] = await Promise.all([
+    supabase.from("assignments").select("timer_minutes").eq("id", assignmentId).single(),
     supabase
       .from("quiz_questions")
       .select(
-        "id, question_text, question_type, sort_order, quiz_options(id, option_text, sort_order)",
+        "id, question_text, question_type, points, sort_order, quiz_options(id, option_text, sort_order), quiz_pairs(id, drag_text, target_text), quiz_steps(id, step_text)",
       )
       .eq("assignment_id", assignmentId)
+      .eq("is_active", true)
       .order("sort_order"),
     supabase
       .from("submissions")
@@ -190,21 +232,32 @@ export async function getQuizForStudent(
       .maybeSingle(),
   ]);
 
-  const mapped: StudentQuizQuestion[] = (questions ?? []).map((q) => ({
-    id: q.id,
-    questionText: q.question_text,
-    questionType: q.question_type,
-    options: (
+  const mapped: StudentQuizQuestion[] = (questions ?? []).map((q) => {
+    const options = (
       (q.quiz_options as unknown as { id: string; option_text: string; sort_order: number }[]) ?? []
     )
       .slice()
       .sort((a, b) => a.sort_order - b.sort_order)
-      .map((o) => ({ id: o.id, text: o.option_text })),
-  }));
+      .map((o) => ({ id: o.id, text: o.option_text }));
+    const pairs =
+      (q.quiz_pairs as unknown as { id: string; drag_text: string; target_text: string }[]) ?? [];
+    const steps = (q.quiz_steps as unknown as { id: string; step_text: string }[]) ?? [];
+    return {
+      id: q.id,
+      questionText: q.question_text,
+      questionType: q.question_type as StudentQuestionType,
+      points: q.points,
+      options,
+      dragBlocks: shuffle(pairs.map((p) => ({ id: p.id, text: p.drag_text }))),
+      targetBlocks: shuffle(pairs.map((p) => ({ id: p.id, text: p.target_text }))),
+      steps: shuffle(steps.map((s) => ({ id: s.id, text: s.step_text }))),
+    };
+  });
 
   return {
     questions: mapped,
     alreadySubmitted: submission?.status === "graded",
     score: submission?.score ?? null,
+    timerMinutes: assignment?.timer_minutes ?? null,
   };
 }

@@ -72,7 +72,9 @@ export async function fetchQuizForStudent(assignmentId: string): Promise<Student
 interface QuizAnswerInput {
   questionId: string;
   selectedOptionId?: string;
-  shortAnswerText?: string;
+  trueFalseAnswer?: "benar" | "salah";
+  dragDropAnswer?: Record<string, string>;
+  sequenceAnswer?: string[];
 }
 
 export async function submitQuizAnswers(
@@ -98,31 +100,50 @@ export async function submitQuizAnswers(
 
   const { data: questions } = await supabase
     .from("quiz_questions")
-    .select("id, question_type, correct_answer_text, quiz_options(id, is_correct)")
-    .eq("assignment_id", assignmentId);
+    .select(
+      "id, question_type, points, correct_answer_text, quiz_options(id, is_correct), quiz_pairs(id), quiz_steps(id, correct_order)",
+    )
+    .eq("assignment_id", assignmentId)
+    .eq("is_active", true);
 
   if (!questions || questions.length === 0) {
     return { ok: false, message: "Soal tidak ditemukan." };
   }
 
-  let correctCount = 0;
+  let score = 0;
   for (const q of questions) {
     const ans = answers.find((a) => a.questionId === q.id);
     if (!ans) continue;
+    let fraction = 0;
+
     if (q.question_type === "multiple_choice") {
       const options = q.quiz_options as unknown as { id: string; is_correct: boolean }[];
       const correctOption = options.find((o) => o.is_correct);
-      if (correctOption && ans.selectedOptionId === correctOption.id) correctCount++;
-    } else if (q.correct_answer_text) {
-      if (
-        (ans.shortAnswerText ?? "").trim().toLowerCase() ===
-        q.correct_answer_text.trim().toLowerCase()
-      ) {
-        correctCount++;
+      fraction = correctOption && ans.selectedOptionId === correctOption.id ? 1 : 0;
+    } else if (q.question_type === "true_false") {
+      fraction =
+        (ans.trueFalseAnswer ?? "").toLowerCase() === (q.correct_answer_text ?? "").toLowerCase()
+          ? 1
+          : 0;
+    } else if (q.question_type === "drag_and_drop") {
+      const pairs = q.quiz_pairs as unknown as { id: string }[];
+      if (pairs.length > 0 && ans.dragDropAnswer) {
+        const correctCount = pairs.filter((p) => ans.dragDropAnswer?.[p.id] === p.id).length;
+        fraction = correctCount / pairs.length;
+      }
+    } else if (q.question_type === "sequence") {
+      const steps = q.quiz_steps as unknown as { id: string; correct_order: number }[];
+      if (steps.length > 0 && ans.sequenceAnswer) {
+        const stepById = new Map(steps.map((s) => [s.id, s.correct_order]));
+        const correctCount = ans.sequenceAnswer.filter(
+          (stepId, idx) => stepById.get(stepId) === idx + 1,
+        ).length;
+        fraction = correctCount / steps.length;
       }
     }
+
+    score += Math.round(fraction * q.points);
   }
-  const score = Math.round((correctCount / questions.length) * 100);
   const now = new Date().toISOString();
 
   const { error } = await supabase.from("submissions").upsert(

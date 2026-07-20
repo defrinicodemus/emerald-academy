@@ -181,4 +181,53 @@
   .gradient-soft {
     background: linear-gradient(135deg, oklch(0.94 0.06 140), oklch(0.97 0.02 100));
   }
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .rich-text-content h2 {
+    margin-top: 0.75rem;
+    margin-bottom: 0.5rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+  .rich-text-content p {
+    margin-bottom: 0.75rem;
+    text-indent: 1.5em;
+  }
+  .rich-text-content ul {
+    margin-bottom: 0.75rem;
+    padding-left: 1.5rem;
+    list-style: disc;
+  }
+  .rich-text-content ol {
+    margin-bottom: 0.75rem;
+    padding-left: 1.5rem;
+    list-style: decimal;
+  }
+  .rich-text-content li {
+    margin-bottom: 0.25rem;
+  }
+  .rich-text-content li p {
+    margin-bottom: 0;
+    text-indent: 0;
+  }
+  .rich-text-content strong {
+    font-weight: 700;
+  }
+  .rich-text-content em {
+    font-style: italic;
+  }
+  .rich-text-content p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    color: var(--color-muted-foreground);
+    text-indent: 1.5em;
+    pointer-events: none;
+  }
 }

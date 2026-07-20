@@ -26,22 +26,3 @@ export async function getTeacherClassSubjects(teacherId: string): Promise<Teache
         a.className.localeCompare(b.className) || a.subjectName.localeCompare(b.subjectName),
     );
 }
-
-export async function listTeacherClasses(
-  teacherId: string,
-): Promise<{ id: string; name: string }[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("class_teacher_subjects")
-    .select("class_id, classes(id, name)")
-    .eq("teacher_id", teacherId);
-
-  const byId = new Map<string, string>();
-  for (const row of data ?? []) {
-    const cls = row.classes as unknown as { id: string; name: string } | null;
-    if (cls) byId.set(cls.id, cls.name);
-  }
-  return [...byId.entries()]
-    .map(([id, name]) => ({ id, name }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-}

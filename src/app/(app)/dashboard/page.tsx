@@ -5,6 +5,7 @@ import {
   getStudentDashboardData,
   getPrincipalDashboardData,
   getAdminDashboardData,
+  getTeacherDashboardData,
 } from "@/lib/data/dashboard";
 import { getSchool } from "@/lib/data/school";
 import { getTeacherClassSubjects } from "@/lib/data/teaching";
@@ -26,8 +27,15 @@ export default async function DashboardPage() {
 
   if (user.role === "teacher") {
     const [school, combos] = await Promise.all([getSchool(), getTeacherClassSubjects(user.id)]);
+    const classIds = [...new Set(combos.map((c) => c.classId))];
+    const data = await getTeacherDashboardData(user.id, classIds, combos);
     return (
-      <TeacherDashboard userName={user.name} schoolName={school?.name ?? null} combos={combos} />
+      <TeacherDashboard
+        userName={user.name}
+        schoolName={school?.name ?? null}
+        combos={combos}
+        data={data}
+      />
     );
   }
 
