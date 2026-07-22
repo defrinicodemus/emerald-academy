@@ -94,7 +94,7 @@ export function AttendanceRecapDialog({
                 Belum ada pertemuan yang diisi presensinya.
               </p>
             ) : (
-              <div className="overflow-x-auto rounded-2xl border">
+              <div className="overflow-x-auto rounded-md border">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
                     <tr>
@@ -150,7 +150,7 @@ export function AttendanceRecapDialog({
 
             <div className="flex justify-end">
               <Button
-                className="rounded-xl bg-emerald-700 hover:bg-emerald-800"
+                className="rounded-md bg-emerald-700 hover:bg-emerald-800"
                 disabled={data.meetingNumbers.length === 0}
                 onClick={handleExport}
               >

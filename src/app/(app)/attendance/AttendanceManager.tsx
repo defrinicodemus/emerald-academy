@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CheckCircle2, ClipboardList } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { TeacherClassSubject } from "@/lib/data/teaching";
 import type { AttendanceStatus, MeetingData } from "@/lib/data/attendance";
 import { fetchMeetingData, saveMeeting } from "./actions";
@@ -83,10 +84,12 @@ export function AttendanceManager({
 
   return (
     <div className="space-y-6">
-      <Card className="rounded-3xl border-0 p-6 shadow-soft">
-        <Label>Kelas & Mata Pelajaran</Label>
+      <Card className="@container rounded-md border-0 p-4 shadow-soft @sm:p-6">
+        <Label className="text-[clamp(0.6875rem,0.65rem+0.2cqw,0.8125rem)]">
+          Kelas & Mata Pelajaran
+        </Label>
         <Select value={selectedKey} onValueChange={setSelectedKey}>
-          <SelectTrigger className="mt-1 w-full sm:w-80">
+          <SelectTrigger className="mt-1 w-full text-[clamp(0.8125rem,0.76rem+0.22cqw,0.9375rem)] sm:w-80">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -101,9 +104,11 @@ export function AttendanceManager({
           </SelectContent>
         </Select>
 
-        <Label className="mt-5 block">Pertemuan</Label>
+        <Label className="mt-5 block text-[clamp(0.6875rem,0.65rem+0.2cqw,0.8125rem)]">
+          Pertemuan
+        </Label>
         <Select value={String(meetingNumber)} onValueChange={(v) => setMeetingNumber(Number(v))}>
-          <SelectTrigger className="mt-1 w-full sm:w-64">
+          <SelectTrigger className="mt-1 w-full text-[clamp(0.8125rem,0.76rem+0.22cqw,0.9375rem)] sm:w-64">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -194,6 +199,9 @@ function MeetingForm({
       if (result.ok) {
         toast.success(result.message);
         onSaved(meetingNumber);
+        setData((prev) =>
+          prev ? { ...prev, lastInputAt: result.lastInputAt ?? new Date().toISOString() } : prev,
+        );
       } else {
         toast.error(result.message);
       }
@@ -202,7 +210,7 @@ function MeetingForm({
 
   if (loading || !data) {
     return (
-      <Card className="rounded-3xl border-0 p-10 text-center shadow-soft">
+      <Card className="rounded-md border-0 p-10 text-center shadow-soft">
         <p className="text-sm text-muted-foreground">Memuat Pertemuan {meetingNumber}...</p>
       </Card>
     );
@@ -210,7 +218,7 @@ function MeetingForm({
 
   return (
     <>
-      <div className="rounded-2xl border border-dashed bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground sm:text-sm">
+      <div className="@container rounded-md border border-dashed bg-muted/30 px-4 py-2.5 text-[clamp(0.6875rem,0.65rem+0.2cqw,0.8125rem)] font-medium text-muted-foreground">
         {data.lastInputAt ? (
           <>🕒 {formatLastInput(data.lastInputAt)}</>
         ) : (
@@ -218,71 +226,146 @@ function MeetingForm({
         )}
       </div>
 
-      <Card className="rounded-3xl border-0 p-6 shadow-soft">
-        <h2 className="font-display text-xl font-bold">Presensi — Pertemuan {meetingNumber}</h2>
+      <Card className="@container rounded-md border-0 p-4 shadow-soft @sm:p-6">
+        <h2 className="font-display text-[clamp(1rem,0.875rem+0.45cqw,1.25rem)] font-bold">
+          Presensi — Pertemuan {meetingNumber}
+        </h2>
         {data.students.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">Belum ada siswa di kelas ini.</p>
         ) : (
-          <div className="mt-4 space-y-2">
-            {data.students.map((st) => (
-              <div
-                key={st.studentId}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary-soft/50 text-sm">
-                    {st.avatar ?? "🙂"}
-                  </div>
-                  <div>
-                    <div className="font-medium">{st.fullName}</div>
-                    <div className="text-xs text-muted-foreground">NISN: {st.nisn ?? "-"}</div>
-                  </div>
-                </div>
-                <div className="flex gap-1.5">
-                  {STATUS_OPTIONS.map((opt) => {
-                    const active = (statusByStudent[st.studentId] ?? "hadir") === opt.value;
+          <>
+            {/* Mobile: 2 kolom, keterangan berupa dropdown kecil */}
+            <div className="mt-4 overflow-hidden rounded-md border sm:hidden">
+              <table className="w-full table-fixed text-[clamp(0.6875rem,0.65rem+0.2cqw,0.8125rem)]">
+                <thead className="border-b bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
+                  <tr>
+                    <th className="border-r p-2 text-left">Nama</th>
+                    <th className="w-24 p-2 text-left">Keterangan</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.students.map((st) => {
+                    const current = statusByStudent[st.studentId] ?? "hadir";
+                    const activeClass = STATUS_OPTIONS.find(
+                      (o) => o.value === current,
+                    )?.activeClass;
                     return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() =>
-                          setStatusByStudent((prev) => ({ ...prev, [st.studentId]: opt.value }))
-                        }
-                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
-                          active ? opt.activeClass : "border-border bg-background hover:bg-muted"
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
+                      <tr key={st.studentId} className="border-b last:border-0">
+                        <td className="border-r p-2 font-bold">
+                          <div className="overflow-x-auto whitespace-nowrap">{st.fullName}</div>
+                        </td>
+                        <td className="p-2">
+                          <Select
+                            value={current}
+                            onValueChange={(v) =>
+                              setStatusByStudent((prev) => ({
+                                ...prev,
+                                [st.studentId]: v as AttendanceStatus,
+                              }))
+                            }
+                          >
+                            <SelectTrigger
+                              className={cn(
+                                "h-8 w-full px-2 text-[clamp(0.6875rem,0.65rem+0.2cqw,0.8125rem)] font-semibold",
+                                activeClass,
+                              )}
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {STATUS_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                      </tr>
                     );
                   })}
-                </div>
-              </div>
-            ))}
-          </div>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Desktop: 3 kolom, keterangan berupa tombol horizontal */}
+            <div className="mt-4 hidden overflow-x-auto rounded-md border sm:block">
+              <table className="w-full table-fixed text-[clamp(0.6875rem,0.65rem+0.2cqw,0.8125rem)]">
+                <thead className="border-b bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
+                  <tr>
+                    <th className="border-r p-2 text-left">Nama</th>
+                    <th className="w-16 border-r p-2 text-left">NISN</th>
+                    <th className="w-[clamp(11rem,8rem+15cqw,20rem)] p-2 text-left">Keterangan</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.students.map((st) => (
+                    <tr key={st.studentId} className="border-b last:border-0">
+                      <td className="border-r p-2 font-bold">
+                        <div className="overflow-x-auto whitespace-nowrap">{st.fullName}</div>
+                      </td>
+                      <td className="border-r p-2 text-muted-foreground">{st.nisn ?? "-"}</td>
+                      <td className="p-2">
+                        <div className="flex flex-wrap gap-1.5 sm:flex-nowrap">
+                          {STATUS_OPTIONS.map((opt) => {
+                            const active = (statusByStudent[st.studentId] ?? "hadir") === opt.value;
+                            return (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() =>
+                                  setStatusByStudent((prev) => ({
+                                    ...prev,
+                                    [st.studentId]: opt.value,
+                                  }))
+                                }
+                                className={`shrink-0 rounded-md border px-3 py-1.5 text-[clamp(0.6875rem,0.65rem+0.2cqw,0.8125rem)] font-semibold transition ${
+                                  active
+                                    ? opt.activeClass
+                                    : "border-border bg-background hover:bg-muted"
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </Card>
 
-      <Card className="rounded-3xl border-0 p-6 shadow-soft">
-        <h2 className="font-display text-xl font-bold">Jurnal Mengajar</h2>
+      <Card className="@container rounded-md border-0 p-4 shadow-soft @sm:p-6">
+        <h2 className="font-display text-[clamp(1rem,0.875rem+0.45cqw,1.25rem)] font-bold">
+          Jurnal Mengajar
+        </h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div>
-            <Label>Hari/Tanggal</Label>
+            <Label className="text-[clamp(0.6875rem,0.65rem+0.2cqw,0.8125rem)]">Hari/Tanggal</Label>
             <Input
               type="date"
               value={meetingDate}
               onChange={(e) => setMeetingDate(e.target.value)}
-              className="mt-1"
+              className="mt-1 text-[clamp(0.8125rem,0.76rem+0.22cqw,0.9375rem)]"
             />
-            <p className="mt-1 text-xs text-muted-foreground">{formatDayName(meetingDate)}</p>
+            <p className="mt-1 text-[clamp(0.6875rem,0.65rem+0.2cqw,0.8125rem)] text-muted-foreground">
+              {formatDayName(meetingDate)}
+            </p>
           </div>
           <div>
-            <Label>Tautan TP (Tujuan Pembelajaran)</Label>
+            <Label className="text-[clamp(0.6875rem,0.65rem+0.2cqw,0.8125rem)]">
+              Tautan TP (Tujuan Pembelajaran)
+            </Label>
             <Select
               value={learningObjectiveId ?? "none"}
               onValueChange={(v) => setLearningObjectiveId(v === "none" ? null : v)}
             >
-              <SelectTrigger className="mt-1 w-full">
+              <SelectTrigger className="mt-1 h-auto w-full whitespace-normal py-2 text-[clamp(0.8125rem,0.76rem+0.22cqw,0.9375rem)] [&>span]:line-clamp-none [&>span]:whitespace-normal sm:h-9 sm:[&>span]:line-clamp-1 sm:[&>span]:whitespace-nowrap">
                 <SelectValue placeholder="Pilih TP..." />
               </SelectTrigger>
               <SelectContent>
@@ -296,43 +379,60 @@ function MeetingForm({
             </Select>
           </div>
           <div className="sm:col-span-2">
-            <Label>Materi yang Diajarkan</Label>
+            <Label className="text-[clamp(0.6875rem,0.65rem+0.2cqw,0.8125rem)]">
+              Materi yang Diajarkan
+            </Label>
+            <Input
+              value={materialTaught}
+              onChange={(e) => setMaterialTaught(e.target.value)}
+              className="mt-1 text-[clamp(0.8125rem,0.76rem+0.22cqw,0.9375rem)] sm:hidden"
+            />
             <Input
               value={materialTaught}
               onChange={(e) => setMaterialTaught(e.target.value)}
               placeholder="Contoh: IPAS Bab 1 - Mengidentifikasi Mata dan Telinga"
-              className="mt-1"
+              className="mt-1 hidden text-[clamp(0.8125rem,0.76rem+0.22cqw,0.9375rem)] sm:block"
             />
           </div>
           <div className="sm:col-span-2">
-            <Label>Catatan Kejadian Kelas</Label>
+            <Label className="text-[clamp(0.6875rem,0.65rem+0.2cqw,0.8125rem)]">
+              Catatan Kejadian Kelas
+            </Label>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={4}
+              className="mt-1 text-[clamp(0.8125rem,0.76rem+0.22cqw,0.9375rem)] sm:hidden"
+            />
             <Textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={4}
               placeholder="Contoh: Pembelajaran kondusif, namun Doni tidak membawa buku paket. Materi selesai tepat waktu."
-              className="mt-1"
+              className="mt-1 hidden text-[clamp(0.8125rem,0.76rem+0.22cqw,0.9375rem)] sm:block"
             />
           </div>
         </div>
-        <div className="mt-6 flex flex-col items-end gap-2">
-          <Button
-            className="rounded-xl"
-            disabled={isPending || data.students.length === 0}
-            onClick={handleSave}
-          >
-            {isPending ? "Menyimpan..." : "Simpan Presensi & Jurnal Hari Ini"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="rounded-xl"
-            onClick={() => setShowRecap(true)}
-          >
-            <ClipboardList className="mr-2 h-4 w-4" /> Rekap Presensi
-          </Button>
-        </div>
       </Card>
+
+      <div className="flex flex-col items-end gap-2">
+        <Button
+          className="rounded-md text-[clamp(0.8125rem,0.76rem+0.22cqw,0.9375rem)]"
+          disabled={isPending || data.students.length === 0}
+          onClick={handleSave}
+        >
+          {isPending ? "Menyimpan..." : "Simpan Presensi & Jurnal Hari Ini"}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="rounded-md text-[clamp(0.8125rem,0.76rem+0.22cqw,0.9375rem)]"
+          onClick={() => setShowRecap(true)}
+        >
+          <ClipboardList className="mr-2 size-[clamp(0.875rem,0.8rem+0.4cqw,1.125rem)]" /> Rekap
+          Presensi
+        </Button>
+      </div>
 
       {showRecap && (
         <AttendanceRecapDialog

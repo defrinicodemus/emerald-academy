@@ -3,6 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/data/profile";
+import { getQuizAnswerReview, type QuizAnswerReviewItem } from "@/lib/data/review";
+
+export async function fetchQuizAnswerReview(
+  assignmentId: string,
+  studentId: string,
+): Promise<QuizAnswerReviewItem[]> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser || currentUser.role !== "teacher") return [];
+  return getQuizAnswerReview(assignmentId, studentId);
+}
 
 export async function gradeSubmission(
   formData: FormData,

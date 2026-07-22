@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/data/profile";
-import { getGradebookData, getStudentHistory, type StudentHistoryData } from "@/lib/data/gradebook";
+import {
+  averageOfTpAverages,
+  getGradebookData,
+  getStudentHistory,
+  type StudentHistoryData,
+} from "@/lib/data/gradebook";
 
 export async function lockAndCalculateGrades(
   classId: string,
@@ -43,11 +48,8 @@ export async function lockAndCalculateGrades(
 
   const periodMonth = new Date().toISOString().slice(0, 10);
   const rows = gradebook.students.map((st) => {
-    const values = gradebook.tpColumns
-      .map((tp) => st.tpAverages[tp.id])
-      .filter((v): v is number => v != null);
     const finalScore =
-      values.length > 0 ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : 0;
+      averageOfTpAverages(gradebook.tpColumns.map((tp) => st.tpAverages[tp.id])) ?? 0;
     return {
       student_id: st.studentId,
       subject_id: subjectId,

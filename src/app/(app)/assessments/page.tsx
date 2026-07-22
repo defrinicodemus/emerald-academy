@@ -39,9 +39,10 @@ export default async function AssessmentsPage() {
         icon="📝"
         title="Ruang Periksa"
         subtitle="Periksa tugas manual dan pantau hasil kuis otomatis"
+        rounded="blunt"
       />
       {combos.length === 0 ? (
-        <Card className="rounded-3xl border-0 p-10 text-center shadow-soft">
+        <Card className="rounded-md border-0 p-10 text-center shadow-soft">
           <p className="mx-auto max-w-md text-sm text-muted-foreground">
             Anda belum ditugaskan mengajar kelas/mata pelajaran manapun. Hubungi admin untuk
             penugasan lewat Master Kelas.

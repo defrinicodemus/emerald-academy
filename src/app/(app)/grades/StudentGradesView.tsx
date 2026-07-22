@@ -55,7 +55,10 @@ function SubjectGradeCard({ subject: s }: { subject: StudentSubjectGrade }) {
         <div className="min-w-0 flex-1">
           <div className="font-display text-lg font-bold">{s.subjectName}</div>
           {s.overallAverage != null ? (
-            <div className="text-sm text-muted-foreground">Rata-rata: {s.overallAverage}</div>
+            <div className="text-sm text-muted-foreground">
+              Rata-rata: {s.overallAverage}{" "}
+              <span className="text-xs italic">{s.isLocked ? "(Final)" : "(Sementara)"}</span>
+            </div>
           ) : (
             <div className="text-sm text-muted-foreground">Belum ada penilaian tersedia</div>
           )}

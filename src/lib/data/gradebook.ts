@@ -150,17 +150,24 @@ export interface HistoryAssignmentRow {
   title: string;
   submittedAt: string | null;
   score: number | null;
-  teacherComment: string | null;
+}
+
+export interface HistoryTpGroup {
+  tpId: string;
+  tpTitle: string;
+  items: HistoryAssignmentRow[];
 }
 
 export interface StudentHistoryData {
   materials: HistoryMaterialRow[];
-  tugas: HistoryAssignmentRow[];
-  kuis: HistoryAssignmentRow[];
+  tugasByTp: HistoryTpGroup[];
+  kuisByTp: HistoryTpGroup[];
   materialsViewedPercent: number;
   averageTugas: number | null;
   averageKuis: number | null;
 }
+
+const NO_TP_GROUP_ID = "tanpa-tp";
 
 export async function getStudentHistory(
   studentId: string,
@@ -178,7 +185,7 @@ export async function getStudentHistory(
     supabase.from("material_views").select("material_id, viewed_at").eq("student_id", studentId),
     supabase
       .from("assignments")
-      .select("id, title, kind")
+      .select("id, title, kind, learning_objective_id, learning_objectives(title, sort_order)")
       .eq("class_id", classId)
       .eq("subject_id", subjectId),
   ]);
@@ -201,7 +208,7 @@ export async function getStudentHistory(
     assignmentIds.length > 0
       ? await supabase
           .from("submissions")
-          .select("assignment_id, submitted_at, score, teacher_comment, status")
+          .select("assignment_id, submitted_at, score, status")
           .eq("student_id", studentId)
           .in("assignment_id", assignmentIds)
       : {
@@ -209,15 +216,23 @@ export async function getStudentHistory(
             assignment_id: string;
             submitted_at: string | null;
             score: number | null;
-            teacher_comment: string | null;
             status: string;
           }[],
         };
 
   const submissionByAssignment = new Map((submissions ?? []).map((s) => [s.assignment_id, s]));
 
-  const tugas: HistoryAssignmentRow[] = [];
-  const kuis: HistoryAssignmentRow[] = [];
+  const tugasGroups = new Map<
+    string,
+    { title: string; sortOrder: number; items: HistoryAssignmentRow[] }
+  >();
+  const kuisGroups = new Map<
+    string,
+    { title: string; sortOrder: number; items: HistoryAssignmentRow[] }
+  >();
+  const tugasScores: number[] = [];
+  const kuisScores: number[] = [];
+
   for (const a of assignments ?? []) {
     const sub = submissionByAssignment.get(a.id);
     const row: HistoryAssignmentRow = {
@@ -225,19 +240,35 @@ export async function getStudentHistory(
       title: a.title,
       submittedAt: sub?.submitted_at ?? null,
       score: sub?.score ?? null,
-      teacherComment: sub?.teacher_comment ?? null,
     };
-    if (a.kind === "quiz") kuis.push(row);
-    else tugas.push(row);
+    const groups = a.kind === "quiz" ? kuisGroups : tugasGroups;
+    const scores = a.kind === "quiz" ? kuisScores : tugasScores;
+    if (row.score != null) scores.push(row.score);
+
+    const lo = a.learning_objectives as unknown as { title: string; sort_order: number } | null;
+    const tpId = a.learning_objective_id ?? NO_TP_GROUP_ID;
+    const entry = groups.get(tpId) ?? {
+      title: a.learning_objective_id ? (lo?.title ?? "TP") : "Tanpa TP",
+      sortOrder: a.learning_objective_id ? (lo?.sort_order ?? 0) : Number.MAX_SAFE_INTEGER,
+      items: [] as HistoryAssignmentRow[],
+    };
+    entry.items.push(row);
+    groups.set(tpId, entry);
   }
 
-  const tugasScores = tugas.map((t) => t.score).filter((s): s is number => s != null);
-  const kuisScores = kuis.map((k) => k.score).filter((s): s is number => s != null);
+  function toSortedGroups(
+    groups: Map<string, { title: string; sortOrder: number; items: HistoryAssignmentRow[] }>,
+  ): HistoryTpGroup[] {
+    return [...groups.entries()]
+      .map(([tpId, { title, sortOrder, items }]) => ({ tpId, tpTitle: title, sortOrder, items }))
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map(({ tpId, tpTitle, items }) => ({ tpId, tpTitle, items }));
+  }
 
   return {
     materials: materialRows,
-    tugas,
-    kuis,
+    tugasByTp: toSortedGroups(tugasGroups),
+    kuisByTp: toSortedGroups(kuisGroups),
     materialsViewedPercent,
     averageTugas:
       tugasScores.length > 0
@@ -248,6 +279,11 @@ export async function getStudentHistory(
         ? Math.round(kuisScores.reduce((a, b) => a + b, 0) / kuisScores.length)
         : null,
   };
+}
+
+export function averageOfTpAverages(tpAverages: (number | null | undefined)[]): number | null {
+  const values = tpAverages.filter((v): v is number => v != null);
+  return values.length > 0 ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null;
 }
 
 export interface StudentTpGrade {
@@ -262,6 +298,7 @@ export interface StudentSubjectGrade {
   subjectEmoji: string | null;
   subjectColor: string | null;
   overallAverage: number | null;
+  isLocked: boolean;
   tpGrades: StudentTpGrade[];
 }
 
@@ -282,7 +319,7 @@ export async function getStudentGrades(
   );
   const visibleSubjectIds = visibleSubjects.map((s) => s.id);
 
-  const [{ data: plans }, { data: assignments }] = await Promise.all([
+  const [{ data: plans }, { data: assignments }, { data: locks }] = await Promise.all([
     visibleSubjectIds.length > 0
       ? supabase
           .from("curriculum_plans")
@@ -294,7 +331,30 @@ export async function getStudentGrades(
       .from("assignments")
       .select("id, subject_id, learning_objective_id, learning_objectives(title, sort_order)")
       .eq("class_id", classId),
+    visibleSubjectIds.length > 0
+      ? supabase
+          .from("gradebook_locks")
+          .select("subject_id")
+          .eq("class_id", classId)
+          .in("subject_id", visibleSubjectIds)
+      : Promise.resolve({ data: [] as { subject_id: string }[] }),
   ]);
+
+  const lockedSubjectIds = new Set((locks ?? []).map((l) => l.subject_id));
+
+  const finalGradeBySubject = new Map<string, number>();
+  if (lockedSubjectIds.size > 0) {
+    const { data: gradeRows } = await supabase
+      .from("grades")
+      .select("subject_id, score, created_at")
+      .eq("student_id", studentId)
+      .eq("class_id", classId)
+      .in("subject_id", [...lockedSubjectIds])
+      .order("created_at", { ascending: false });
+    for (const g of gradeRows ?? []) {
+      if (!finalGradeBySubject.has(g.subject_id)) finalGradeBySubject.set(g.subject_id, g.score);
+    }
+  }
 
   const assignmentIds = (assignments ?? []).map((a) => a.id);
   const { data: submissions } =
@@ -309,7 +369,6 @@ export async function getStudentGrades(
 
   const assignmentById = new Map((assignments ?? []).map((a) => [a.id, a]));
 
-  const scoresBySubject = new Map<string, number[]>();
   const tpScoresBySubject = new Map<
     string,
     Map<string, { title: string; sortOrder: number; scores: number[] }>
@@ -337,10 +396,6 @@ export async function getStudentGrades(
     const a = assignmentById.get(sub.assignment_id);
     if (!a) continue;
 
-    const subjectScores = scoresBySubject.get(a.subject_id) ?? [];
-    subjectScores.push(sub.score);
-    scoresBySubject.set(a.subject_id, subjectScores);
-
     if (a.learning_objective_id) {
       const lo = a.learning_objectives as unknown as { title: string; sort_order: number } | null;
       const tpMap = tpScoresBySubject.get(a.subject_id) ?? new Map();
@@ -356,7 +411,7 @@ export async function getStudentGrades(
   }
 
   return visibleSubjects.map((s) => {
-    const scores = scoresBySubject.get(s.id) ?? [];
+    const isLocked = lockedSubjectIds.has(s.id);
     const tpMap = tpScoresBySubject.get(s.id);
     const tpGrades: StudentTpGrade[] = tpMap
       ? [...tpMap.entries()]
@@ -378,8 +433,10 @@ export async function getStudentGrades(
       subjectName: s.name,
       subjectEmoji: s.emoji,
       subjectColor: s.color,
-      overallAverage:
-        scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null,
+      overallAverage: isLocked
+        ? (finalGradeBySubject.get(s.id) ?? null)
+        : averageOfTpAverages(tpGrades.map((tp) => tp.average)),
+      isLocked,
       tpGrades,
     };
   });
@@ -406,6 +463,7 @@ export interface StudentSubjectGradeDetail {
   subjectEmoji: string | null;
   subjectColor: string | null;
   overallAverage: number | null;
+  isLocked: boolean;
   tugasGradedCount: number;
   kuisGradedCount: number;
   totalActivityCount: number;
@@ -421,22 +479,43 @@ export async function getStudentSubjectGradeDetail(
 ): Promise<StudentSubjectGradeDetail | null> {
   const supabase = await createClient();
 
-  const [{ data: subject }, { data: plan }, { data: assignments }] = await Promise.all([
-    supabase.from("subjects").select("id, name, emoji, color").eq("id", subjectId).maybeSingle(),
-    supabase
-      .from("curriculum_plans")
-      .select("id, learning_objectives(id, title, sort_order)")
-      .eq("class_id", classId)
-      .eq("subject_id", subjectId)
-      .maybeSingle(),
-    supabase
-      .from("assignments")
-      .select("id, title, kind, learning_objective_id, learning_objectives(title, sort_order)")
-      .eq("class_id", classId)
-      .eq("subject_id", subjectId),
-  ]);
+  const [{ data: subject }, { data: plan }, { data: assignments }, { data: lock }] =
+    await Promise.all([
+      supabase.from("subjects").select("id, name, emoji, color").eq("id", subjectId).maybeSingle(),
+      supabase
+        .from("curriculum_plans")
+        .select("id, learning_objectives(id, title, sort_order)")
+        .eq("class_id", classId)
+        .eq("subject_id", subjectId)
+        .maybeSingle(),
+      supabase
+        .from("assignments")
+        .select("id, title, kind, learning_objective_id, learning_objectives(title, sort_order)")
+        .eq("class_id", classId)
+        .eq("subject_id", subjectId),
+      supabase
+        .from("gradebook_locks")
+        .select("locked_at")
+        .eq("class_id", classId)
+        .eq("subject_id", subjectId)
+        .maybeSingle(),
+    ]);
 
   if (!subject) return null;
+
+  const isLocked = !!lock;
+  let finalGrade: number | null = null;
+  if (isLocked) {
+    const { data: gradeRows } = await supabase
+      .from("grades")
+      .select("score, created_at")
+      .eq("student_id", studentId)
+      .eq("class_id", classId)
+      .eq("subject_id", subjectId)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    finalGrade = gradeRows?.[0]?.score ?? null;
+  }
 
   const assignmentIds = (assignments ?? []).map((a) => a.id);
   const { data: submissions } =
@@ -520,10 +599,8 @@ export async function getStudentSubjectGradeDetail(
     subjectName: subject.name,
     subjectEmoji: subject.emoji,
     subjectColor: subject.color,
-    overallAverage:
-      allGradedScores.length > 0
-        ? Math.round(allGradedScores.reduce((a, b) => a + b, 0) / allGradedScores.length)
-        : null,
+    overallAverage: isLocked ? finalGrade : averageOfTpAverages(tpDetails.map((tp) => tp.average)),
+    isLocked,
     tugasGradedCount,
     kuisGradedCount,
     totalActivityCount: assignmentIds.length,

@@ -65,33 +65,38 @@ export function GradebookManager({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="w-full sm:w-80">
-          <Label>Kelas & Mata Pelajaran</Label>
-          <Select value={selectedKey} onValueChange={setSelectedKey}>
-            <SelectTrigger className="mt-1 w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {combos.map((c) => (
-                <SelectItem
-                  key={comboKey(c.classId, c.subjectId)}
-                  value={comboKey(c.classId, c.subjectId)}
-                >
-                  {c.className} - {c.subjectName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <Card className="@container rounded-md border-0 p-4 shadow-soft @sm:p-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="w-full sm:w-80">
+            <Label className="text-[clamp(0.6875rem,0.65rem+0.2cqw,0.8125rem)]">
+              Kelas & Mata Pelajaran
+            </Label>
+            <Select value={selectedKey} onValueChange={setSelectedKey}>
+              <SelectTrigger className="mt-1 w-full text-[clamp(0.8125rem,0.76rem+0.22cqw,0.9375rem)]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {combos.map((c) => (
+                  <SelectItem
+                    key={comboKey(c.classId, c.subjectId)}
+                    value={comboKey(c.classId, c.subjectId)}
+                  >
+                    {c.className} - {c.subjectName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            className="rounded-md bg-emerald-700 text-[clamp(0.8125rem,0.76rem+0.22cqw,0.9375rem)] hover:bg-emerald-800"
+            disabled={!data.isLocked}
+            onClick={handleExport}
+          >
+            <Download className="mr-2 size-[clamp(0.875rem,0.8rem+0.4cqw,1.125rem)]" /> Ekspor ke
+            Excel
+          </Button>
         </div>
-        <Button
-          className="rounded-xl bg-emerald-700 hover:bg-emerald-800"
-          disabled={!data.isLocked}
-          onClick={handleExport}
-        >
-          <Download className="mr-2 h-4 w-4" /> Ekspor ke Excel
-        </Button>
-      </div>
+      </Card>
 
       <GradebookTable
         data={data}
@@ -130,8 +135,23 @@ function GradebookTable({
     });
   }
 
+  // Nama Siswa fixed at 40%. The remaining 60% is split across TP columns +
+  // Nilai Akhir + Riwayat, weighted by each column's minimum pixel need (Nilai
+  // Akhir needs more room than a single TP score or the eye icon). The table's
+  // own min-width is set to whatever width makes every shared column land
+  // exactly at its floor; below that container width, the table can no longer
+  // shrink and the wrapper's hidden-scrollbar overflow-x-auto takes over.
+  const TP_FLOOR_PX = 64;
+  const NILAI_FLOOR_PX = 128;
+  const RIWAYAT_FLOOR_PX = 64;
+  const totalFloorPx = data.tpColumns.length * TP_FLOOR_PX + NILAI_FLOOR_PX + RIWAYAT_FLOOR_PX;
+  const tpSharePercent = (TP_FLOOR_PX / totalFloorPx) * 60;
+  const nilaiSharePercent = (NILAI_FLOOR_PX / totalFloorPx) * 60;
+  const riwayatSharePercent = (RIWAYAT_FLOOR_PX / totalFloorPx) * 60;
+  const tableMinWidthPx = Math.round(totalFloorPx / 0.6);
+
   return (
-    <Card className="rounded-3xl border-0 p-6 shadow-soft">
+    <Card className="@container rounded-md border-0 p-4 shadow-soft @sm:p-6">
       {data.tpColumns.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Belum ada Tujuan Pembelajaran (TP) untuk kelas & mapel ini. Isi dulu lewat menu Kelola
@@ -139,24 +159,39 @@ function GradebookTable({
         </p>
       ) : (
         <>
-          <div className="overflow-x-auto rounded-2xl border">
-            <table className="w-full min-w-[720px] text-sm">
-              <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
+          <div className="overflow-x-auto rounded-md border scrollbar-hide">
+            <table
+              className="w-full table-fixed text-[clamp(0.6875rem,0.65rem+0.2cqw,0.8125rem)]"
+              style={{ minWidth: `${tableMinWidthPx}px` }}
+            >
+              <thead className="border-b bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
                 <tr>
-                  <th className="p-3 text-left">Nama Siswa</th>
-                  {data.tpColumns.map((tp) => (
-                    <th key={tp.id} className="p-3 text-left">
-                      Nilai {tp.title}
+                  <th className="w-[40%] border-r p-2 text-left">Nama Siswa</th>
+                  {data.tpColumns.map((tp, i) => (
+                    <th
+                      key={tp.id}
+                      className="border-r p-2 text-left"
+                      style={{ width: `${tpSharePercent}%` }}
+                      title={tp.title}
+                    >
+                      TP {i + 1}
                     </th>
                   ))}
-                  <th className="p-3 text-left">Nilai Akhir</th>
-                  <th className="p-3 text-left">Riwayat</th>
+                  <th
+                    className="border-r whitespace-nowrap p-2 text-left"
+                    style={{ width: `${nilaiSharePercent}%` }}
+                  >
+                    Nilai Akhir
+                  </th>
+                  <th className="p-2 text-left" style={{ width: `${riwayatSharePercent}%` }}>
+                    Riwayat
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {data.students.map((st) => (
-                  <tr key={st.studentId} className="border-t">
-                    <td className="p-3">
+                  <tr key={st.studentId} className="border-b last:border-0">
+                    <td className="border-r p-2">
                       <button
                         type="button"
                         onClick={() => setHistoryStudent(st)}
@@ -166,30 +201,30 @@ function GradebookTable({
                       </button>
                     </td>
                     {data.tpColumns.map((tp) => (
-                      <td key={tp.id} className="p-3">
+                      <td key={tp.id} className="border-r p-2">
                         {st.tpAverages[tp.id] ?? <span className="text-muted-foreground">-</span>}
                       </td>
                     ))}
-                    <td className="p-3">
+                    <td className="border-r p-2">
                       {data.isLocked ? (
-                        <span className="font-display text-base font-bold text-primary">
+                        <span className="font-display text-[clamp(0.9375rem,0.85rem+0.3cqw,1.125rem)] font-bold text-primary">
                           {st.finalGrade ?? "-"}
                         </span>
                       ) : (
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-[clamp(0.625rem,0.58rem+0.2cqw,0.75rem)] text-muted-foreground">
                           Akan dihitung setelah dikunci
                         </span>
                       )}
                     </td>
-                    <td className="p-3">
+                    <td className="p-2">
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8"
+                        className="size-[clamp(1.75rem,1.6rem+0.6cqw,2rem)] rounded-md"
                         onClick={() => setHistoryStudent(st)}
                         aria-label="Lihat riwayat"
                       >
-                        <Eye className="h-4 w-4" />
+                        <Eye className="size-[clamp(0.875rem,0.8rem+0.4cqw,1.125rem)]" />
                       </Button>
                     </td>
                   </tr>
@@ -211,8 +246,9 @@ function GradebookTable({
           <div className="mt-6 flex justify-end">
             {data.isLocked ? (
               <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2 rounded-xl bg-muted px-4 py-2.5 text-sm text-muted-foreground">
-                  <Lock className="h-4 w-4" /> Buku nilai dikunci pada{" "}
+                <div className="flex items-center gap-2 rounded-md bg-muted px-4 py-2.5 text-[clamp(0.8125rem,0.76rem+0.22cqw,0.9375rem)] text-muted-foreground">
+                  <Lock className="size-[clamp(0.875rem,0.8rem+0.4cqw,1.125rem)]" /> Buku nilai
+                  dikunci pada{" "}
                   {data.lockedAt &&
                     new Date(data.lockedAt).toLocaleDateString("id-ID", {
                       day: "numeric",
@@ -224,10 +260,11 @@ function GradebookTable({
                   <AlertDialogTrigger asChild>
                     <Button
                       variant="outline"
-                      className="rounded-xl border-red-800 text-red-800 hover:bg-red-50"
+                      className="rounded-md border-red-800 text-[clamp(0.8125rem,0.76rem+0.22cqw,0.9375rem)] text-red-800 hover:bg-red-50"
                       disabled={isPending}
                     >
-                      <LockOpen className="mr-2 h-4 w-4" /> Buka Kunci
+                      <LockOpen className="mr-2 size-[clamp(0.875rem,0.8rem+0.4cqw,1.125rem)]" />{" "}
+                      Buka Kunci
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
@@ -250,10 +287,11 @@ function GradebookTable({
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
-                    className="rounded-xl bg-red-800 text-white hover:bg-red-900"
+                    className="rounded-md bg-red-800 text-[clamp(0.8125rem,0.76rem+0.22cqw,0.9375rem)] text-white hover:bg-red-900"
                     disabled={isPending || data.students.length === 0}
                   >
-                    <Lock className="mr-2 h-4 w-4" /> Kunci & Hitung Nilai
+                    <Lock className="mr-2 size-[clamp(0.875rem,0.8rem+0.4cqw,1.125rem)]" /> Kunci &
+                    Hitung Nilai
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>

@@ -37,7 +37,7 @@ export async function saveMeeting(
     notes: string;
     attendance: { studentId: string; status: AttendanceStatus }[];
   },
-): Promise<{ ok: boolean; message: string }> {
+): Promise<{ ok: boolean; message: string; lastInputAt?: string }> {
   const currentUser = await getCurrentUser();
   if (!currentUser || currentUser.role !== "teacher") {
     return { ok: false, message: "Tidak diizinkan." };
@@ -66,18 +66,26 @@ export async function saveMeeting(
     return { ok: false, message: meetingError?.message ?? "Gagal menyimpan pertemuan." };
   }
 
+  let lastInputAt: string | undefined;
   if (payload.attendance.length > 0) {
-    const { error: attendanceError } = await supabase.from("attendance_records").upsert(
-      payload.attendance.map((a) => ({
-        meeting_id: meeting.id,
-        student_id: a.studentId,
-        status: a.status,
-      })),
-      { onConflict: "meeting_id,student_id" },
-    );
+    const { data: records, error: attendanceError } = await supabase
+      .from("attendance_records")
+      .upsert(
+        payload.attendance.map((a) => ({
+          meeting_id: meeting.id,
+          student_id: a.studentId,
+          status: a.status,
+        })),
+        { onConflict: "meeting_id,student_id" },
+      )
+      .select("updated_at");
     if (attendanceError) return { ok: false, message: attendanceError.message };
+    lastInputAt = records?.reduce<string | undefined>(
+      (max, r) => (!max || r.updated_at > max ? r.updated_at : max),
+      undefined,
+    );
   }
 
   revalidatePath("/attendance");
-  return { ok: true, message: "Presensi dan jurnal hari ini berhasil disimpan." };
+  return { ok: true, message: "Presensi dan jurnal hari ini berhasil disimpan.", lastInputAt };
 }

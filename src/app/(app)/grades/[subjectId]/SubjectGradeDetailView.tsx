@@ -38,6 +38,9 @@ export function SubjectGradeDetailView({ detail }: { detail: StudentSubjectGrade
           emoji="📊"
           value={detail.overallAverage ?? undefined}
           label="Rata-rata Mata Pelajaran"
+          caption={
+            detail.overallAverage != null ? (detail.isLocked ? "Final" : "Sementara") : undefined
+          }
         />
         <SummaryCard
           emoji="📋"
@@ -74,10 +77,12 @@ function SummaryCard({
   emoji,
   value,
   label,
+  caption,
 }: {
   emoji: string;
   value?: string | number;
   label: string;
+  caption?: string;
 }) {
   return (
     <Card className="aspect-square w-32 shrink-0 rounded-2xl border-0 p-4 shadow-soft md:aspect-auto md:w-auto md:p-5">
@@ -90,7 +95,10 @@ function SummaryCard({
         ) : (
           <>
             <div className="font-display text-2xl font-bold">{value}</div>
-            <div className="text-xs font-medium text-muted-foreground">{label}</div>
+            <div className="text-xs font-medium text-muted-foreground">
+              {label}
+              {caption && <span className="italic"> ({caption})</span>}
+            </div>
           </>
         )}
       </div>

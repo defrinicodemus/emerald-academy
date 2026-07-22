@@ -111,6 +111,7 @@ export async function submitQuizAnswers(
   }
 
   let score = 0;
+  const perQuestionPoints = new Map<string, number>();
   for (const q of questions) {
     const ans = answers.find((a) => a.questionId === q.id);
     if (!ans) continue;
@@ -142,24 +143,52 @@ export async function submitQuizAnswers(
       }
     }
 
-    score += Math.round(fraction * q.points);
+    const questionPoints = Math.round(fraction * q.points);
+    perQuestionPoints.set(q.id, questionPoints);
+    score += questionPoints;
   }
   const now = new Date().toISOString();
 
-  const { error } = await supabase.from("submissions").upsert(
-    {
-      assignment_id: assignmentId,
-      student_id: currentUser.id,
-      status: "graded",
-      score,
-      submitted_at: now,
-      graded_at: now,
-    },
-    { onConflict: "assignment_id,student_id" },
-  );
+  const { data: submission, error } = await supabase
+    .from("submissions")
+    .upsert(
+      {
+        assignment_id: assignmentId,
+        student_id: currentUser.id,
+        status: "graded",
+        score,
+        submitted_at: now,
+        graded_at: now,
+      },
+      { onConflict: "assignment_id,student_id" },
+    )
+    .select("id")
+    .single();
 
-  if (error) {
-    return { ok: false, message: error.message };
+  if (error || !submission) {
+    return { ok: false, message: error?.message ?? "Gagal menyimpan submission." };
+  }
+
+  const answerRows = questions
+    .map((q) => {
+      const ans = answers.find((a) => a.questionId === q.id);
+      if (!ans) return null;
+      return {
+        submission_id: submission.id,
+        question_id: q.id,
+        selected_option_id: ans.selectedOptionId ?? null,
+        true_false_answer: ans.trueFalseAnswer ?? null,
+        drag_drop_answer: ans.dragDropAnswer ?? null,
+        sequence_answer: ans.sequenceAnswer ?? null,
+        points_earned: perQuestionPoints.get(q.id) ?? 0,
+      };
+    })
+    .filter((r): r is NonNullable<typeof r> => r !== null);
+
+  if (answerRows.length > 0) {
+    await supabase
+      .from("quiz_answers")
+      .upsert(answerRows, { onConflict: "submission_id,question_id" });
   }
 
   revalidatePath("/subjects");

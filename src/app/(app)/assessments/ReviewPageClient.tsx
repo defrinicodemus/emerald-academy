@@ -37,8 +37,8 @@ export function ReviewPageClient({
 
   return (
     <div className="space-y-6">
-      <Card className="rounded-3xl border-0 p-6 shadow-soft">
-        <Label>Kelas & Mata Pelajaran</Label>
+      <Card className="@container rounded-md border-0 p-4 shadow-soft @sm:p-6">
+        <Label className="text-xs">Kelas & Mata Pelajaran</Label>
         <Select value={selectedKey} onValueChange={setSelectedKey}>
           <SelectTrigger className="mt-1 w-full sm:w-80">
             <SelectValue />
@@ -57,9 +57,13 @@ export function ReviewPageClient({
       </Card>
 
       <Tabs defaultValue="tugas">
-        <TabsList>
-          <TabsTrigger value="tugas">Periksa Tugas</TabsTrigger>
-          <TabsTrigger value="kuis">Hasil Kuis</TabsTrigger>
+        <TabsList className="rounded-md">
+          <TabsTrigger value="tugas" className="rounded-md">
+            Periksa Tugas
+          </TabsTrigger>
+          <TabsTrigger value="kuis" className="rounded-md">
+            Hasil Kuis
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="tugas" className="mt-4">
           <ReviewTugasTab
