@@ -6,6 +6,7 @@ export type AssignmentStatus = "belum" | "dikerjakan" | "submitted" | "graded";
 
 export interface MaterialContentRow {
   id: string;
+  subjectId: string;
   title: string;
   kind: string;
   url: string | null;
@@ -17,6 +18,7 @@ export interface MaterialContentRow {
 
 export interface AssignmentContentRow {
   id: string;
+  subjectId: string;
   title: string;
   kind: string;
   description: string | null;
@@ -131,6 +133,7 @@ export async function getSubjectsExplorerData(classId: string | null, studentId:
     for (const m of materials ?? []) {
       (materialsBySubject[m.subject_id] ??= []).push({
         id: m.id,
+        subjectId: m.subject_id,
         title: m.title,
         kind: m.kind,
         url: m.url,
@@ -145,6 +148,7 @@ export async function getSubjectsExplorerData(classId: string | null, studentId:
       const sub = submissionByAssignment.get(a.id);
       const row: AssignmentContentRow = {
         id: a.id,
+        subjectId: a.subject_id,
         title: a.title,
         kind: a.kind,
         description: a.description,
@@ -168,6 +172,109 @@ export async function getSubjectsExplorerData(classId: string | null, studentId:
   }
 
   return { subjects: visibleSubjects, materialsBySubject, tugasBySubject, kuisBySubject };
+}
+
+export async function getMaterialForStudent(
+  materialId: string,
+  studentId: string | null,
+): Promise<MaterialContentRow | null> {
+  const supabase = await createClient();
+  const { data: m } = await supabase
+    .from("materials")
+    .select(
+      "id, subject_id, title, kind, url, content, learning_objective_id, learning_objectives(title), created_at",
+    )
+    .eq("id", materialId)
+    .maybeSingle();
+  if (!m) return null;
+
+  let viewed = false;
+  if (studentId) {
+    const { data: view } = await supabase
+      .from("material_views")
+      .select("material_id")
+      .eq("material_id", materialId)
+      .eq("student_id", studentId)
+      .maybeSingle();
+    viewed = !!view;
+  }
+
+  return {
+    id: m.id,
+    subjectId: m.subject_id,
+    title: m.title,
+    kind: m.kind,
+    url: m.url,
+    content: m.content,
+    viewed,
+    learningObjectiveTitle:
+      (m.learning_objectives as unknown as { title: string } | null)?.title ?? null,
+    createdAt: m.created_at,
+  };
+}
+
+export async function getAssignmentForStudent(
+  assignmentId: string,
+  studentId: string | null,
+): Promise<AssignmentContentRow | null> {
+  const supabase = await createClient();
+  const { data: a } = await supabase
+    .from("assignments")
+    .select(
+      "id, subject_id, title, kind, description, due_at, learning_objective_id, learning_objectives(title), created_at, attachment_image_url, attachment_image_name, is_active",
+    )
+    .eq("id", assignmentId)
+    .maybeSingle();
+  if (!a) return null;
+
+  let sub: {
+    status: AssignmentStatus;
+    score: number | null;
+    teacher_comment: string | null;
+    content_url: string | null;
+  } | null = null;
+  if (studentId) {
+    const { data } = await supabase
+      .from("submissions")
+      .select("status, score, teacher_comment, content_url")
+      .eq("assignment_id", assignmentId)
+      .eq("student_id", studentId)
+      .maybeSingle();
+    sub = data;
+  }
+
+  let questionCount = 0;
+  if (a.kind === "quiz") {
+    // Same reasoning as getSubjectsExplorerData: question count is non-sensitive
+    // metadata, so use the admin client to bypass the is_active-gated RLS.
+    const { count } = await createAdminClient()
+      .from("quiz_questions")
+      .select("id", { count: "exact", head: true })
+      .eq("assignment_id", assignmentId)
+      .eq("is_active", true);
+    questionCount = count ?? 0;
+  }
+
+  return {
+    id: a.id,
+    subjectId: a.subject_id,
+    title: a.title,
+    kind: a.kind,
+    description: a.description,
+    dueAt: a.due_at,
+    learningObjectiveTitle:
+      (a.learning_objectives as unknown as { title: string } | null)?.title ?? null,
+    status: sub?.status ?? "belum",
+    score: sub?.score ?? null,
+    teacherComment: sub?.teacher_comment ?? null,
+    submissionContent: sub?.content_url ?? null,
+    questionCount,
+    createdAt: a.created_at,
+    attachmentImageUrl: a.attachment_image_url,
+    attachmentImageName: a.attachment_image_name,
+    isActive: a.is_active,
+    quizStatus: computeQuizStatus(true, a.is_active, a.due_at),
+  };
 }
 
 export type StudentQuestionType = "multiple_choice" | "true_false" | "drag_and_drop" | "sequence";

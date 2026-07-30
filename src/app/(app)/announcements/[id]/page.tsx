@@ -31,24 +31,28 @@ export default async function AnnouncementDetailPage({
 
   return (
     <div className="space-y-6">
-      <PageHeader icon="📣" title="Detail Pengumuman" />
+      <PageHeader icon="📣" title="Detail Pengumuman" rounded="blunt" />
       <Link
         href={backHref}
         className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
       >
         <ArrowLeft className="h-4 w-4" /> Kembali ke Pengumuman
       </Link>
-      <Card className="rounded-3xl border-0 p-8 shadow-soft">
+      <Card className="@container rounded-md border-0 p-4 shadow-soft @sm:p-6 @lg:p-8">
         <span
-          className={`inline-flex w-fit rounded-full px-2.5 py-0.5 text-xs font-semibold ${getCategoryBadgeClass(announcement.category)}`}
+          className={`inline-flex w-fit rounded-md px-2.5 py-0.5 text-[10px] font-semibold @sm:text-xs ${getCategoryBadgeClass(announcement.category)}`}
         >
           {announcement.category}
         </span>
-        <h1 className="mt-3 font-display text-2xl font-bold md:text-3xl">{announcement.title}</h1>
-        <div className="mt-2 text-sm text-muted-foreground">
+        <h1 className="mt-3 font-display text-base font-bold @sm:text-lg @md:text-xl">
+          {announcement.title}
+        </h1>
+        <div className="mt-2 text-[11px] text-muted-foreground @sm:text-xs">
           {formatDate(announcement.created_at)}
         </div>
-        <p className="mt-6 whitespace-pre-wrap text-sm leading-relaxed">{announcement.body}</p>
+        <p className="mt-6 whitespace-pre-wrap text-[13px] leading-relaxed @sm:text-sm">
+          {announcement.body}
+        </p>
       </Card>
     </div>
   );

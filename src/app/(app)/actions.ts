@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/data/profile";
+import { assertRole } from "@/lib/auth/guard";
+import { validateFileUpload } from "@/lib/validateUpload";
 
 export async function logout() {
   const supabase = await createClient();
@@ -123,6 +125,10 @@ export async function markAnnouncementsSeen() {
 export async function saveSchoolSettings(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["admin"]);
+  if (roleError) return roleError;
+
   const name = String(formData.get("name") ?? "").trim();
   const address = String(formData.get("address") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
@@ -145,8 +151,18 @@ export async function saveSchoolSettings(
 export async function uploadSchoolLogo(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["admin"]);
+  if (roleError) return roleError;
+
   const file = formData.get("logo") as File | null;
   if (!file || file.size === 0) return { ok: false, message: "Pilih file logo dulu." };
+
+  const validation = validateFileUpload(file, {
+    allowedTypes: ["image/png", "image/jpeg", "image/webp", "image/svg+xml"],
+    maxSizeMB: 2,
+  });
+  if (!validation.ok) return validation;
 
   const supabase = await createClient();
   const { data: school } = await supabase.from("schools").select("id").limit(1).single();
@@ -173,6 +189,10 @@ export async function uploadSchoolLogo(
 }
 
 export async function createClass(formData: FormData): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["admin"]);
+  if (roleError) return roleError;
+
   const name = String(formData.get("name") ?? "").trim();
   const gradeLevel = Number(formData.get("grade_level"));
   const academicYearId = String(formData.get("academic_year_id") ?? "");
@@ -205,6 +225,10 @@ export async function createClass(formData: FormData): Promise<{ ok: boolean; me
 }
 
 export async function updateClass(formData: FormData): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["admin"]);
+  if (roleError) return roleError;
+
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const gradeLevel = Number(formData.get("grade_level"));
@@ -232,6 +256,10 @@ export async function updateClass(formData: FormData): Promise<{ ok: boolean; me
 }
 
 export async function deleteClass(id: string): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["admin"]);
+  if (roleError) return roleError;
+
   const supabase = await createClient();
 
   const [
@@ -277,6 +305,10 @@ export async function deleteClass(id: string): Promise<{ ok: boolean; message: s
 }
 
 export async function deleteSubject(id: string): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["admin"]);
+  if (roleError) return roleError;
+
   const supabase = await createClient();
 
   const [
@@ -313,6 +345,10 @@ export async function deleteSubject(id: string): Promise<{ ok: boolean; message:
 }
 
 export async function deleteAcademicYear(id: string): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["admin"]);
+  if (roleError) return roleError;
+
   const supabase = await createClient();
 
   const { data: year } = await supabase
@@ -359,6 +395,10 @@ function parseGrade(formData: FormData, field: string): number | null {
 }
 
 export async function createSubject(formData: FormData): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["admin"]);
+  if (roleError) return roleError;
+
   const code = String(formData.get("code") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   const emoji = String(formData.get("emoji") ?? "").trim();
@@ -399,6 +439,10 @@ export async function createSubject(formData: FormData): Promise<{ ok: boolean; 
 }
 
 export async function updateSubject(formData: FormData): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["admin"]);
+  if (roleError) return roleError;
+
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const emoji = String(formData.get("emoji") ?? "").trim();
@@ -420,6 +464,10 @@ export async function updateSubject(formData: FormData): Promise<{ ok: boolean; 
 export async function setClassSubjectTeacher(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["admin"]);
+  if (roleError) return roleError;
+
   const classId = String(formData.get("class_id") ?? "");
   const subjectId = String(formData.get("subject_id") ?? "");
   const teacherId = String(formData.get("teacher_id") ?? "");
@@ -451,6 +499,10 @@ export async function setClassSubjectTeacher(
 export async function assignStudentToClass(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["admin"]);
+  if (roleError) return roleError;
+
   const studentId = String(formData.get("student_id") ?? "");
   const classId = String(formData.get("class_id") ?? "");
   if (!studentId) return { ok: false, message: "Siswa tidak valid." };
@@ -526,6 +578,10 @@ export async function promoteClasses(
 export async function createAcademicYear(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["admin"]);
+  if (roleError) return roleError;
+
   const yearLabel = String(formData.get("year_label") ?? "").trim();
   const semester = String(formData.get("semester") ?? "");
   if (!yearLabel || (semester !== "ganjil" && semester !== "genap")) {
@@ -553,6 +609,10 @@ export async function createAcademicYear(
 export async function setActiveAcademicYear(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["admin"]);
+  if (roleError) return roleError;
+
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, message: "Tahun ajaran tidak valid." };
 

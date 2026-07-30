@@ -1,12 +1,9 @@
-import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/data/profile";
+import { requireRole } from "@/lib/auth/guard";
 import { getTeacherMonitoringData } from "@/lib/data/teacher-monitoring";
 import { TeacherMonitoringView } from "./TeacherMonitoringView";
 
 export default async function TeacherMonitoringPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  if (user.role !== "principal") redirect("/dashboard");
+  await requireRole(["principal"]);
 
   const data = await getTeacherMonitoringData();
 

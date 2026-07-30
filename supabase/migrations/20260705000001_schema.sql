@@ -9,7 +9,6 @@ create type public.semester_type as enum ('ganjil', 'genap');
 create type public.material_kind as enum ('pdf', 'video', 'text', 'image');
 create type public.assignment_kind as enum ('quiz', 'essay', 'photo', 'audio', 'text');
 create type public.submission_status as enum ('belum', 'dikerjakan', 'submitted', 'graded');
-create type public.redemption_status as enum ('pending', 'approved', 'rejected');
 
 -- ── Helper: updated_at trigger ──────────────────────────────────────────
 create function public.set_updated_at()
@@ -193,64 +192,3 @@ create table public.grades (
 create index grades_student_id_idx on public.grades(student_id);
 create index grades_class_id_idx on public.grades(class_id);
 create index grades_subject_id_idx on public.grades(subject_id);
-
--- ── badges / student_badges (gamification) ──────────────────────────────
-create table public.badges (
-  id uuid primary key default gen_random_uuid(),
-  code text not null unique,
-  name text not null,
-  emoji text,
-  description text,
-  created_at timestamptz not null default now()
-);
-
-create table public.student_badges (
-  id uuid primary key default gen_random_uuid(),
-  student_id uuid not null references public.profiles(id) on delete cascade,
-  badge_id uuid not null references public.badges(id) on delete cascade,
-  earned_at timestamptz not null default now(),
-  awarded_by uuid references public.profiles(id) on delete set null,
-  unique (student_id, badge_id)
-);
-create index student_badges_student_id_idx on public.student_badges(student_id);
-
--- ── stars_ledger (append-only; total = SUM(delta)) ──────────────────────
-create table public.stars_ledger (
-  id uuid primary key default gen_random_uuid(),
-  student_id uuid not null references public.profiles(id) on delete cascade,
-  delta int not null,
-  reason text,
-  created_by uuid references public.profiles(id) on delete set null,
-  created_at timestamptz not null default now()
-);
-create index stars_ledger_student_id_idx on public.stars_ledger(student_id);
-
--- ── rewards / reward_redemptions ─────────────────────────────────────────
-create table public.rewards (
-  id uuid primary key default gen_random_uuid(),
-  school_id uuid not null references public.schools(id) on delete cascade,
-  name text not null,
-  emoji text,
-  cost int not null,
-  is_active boolean not null default true,
-  created_at timestamptz not null default now()
-);
-create index rewards_school_id_idx on public.rewards(school_id);
-
-create table public.reward_redemptions (
-  id uuid primary key default gen_random_uuid(),
-  student_id uuid not null references public.profiles(id) on delete cascade,
-  reward_id uuid not null references public.rewards(id) on delete cascade,
-  cost int not null,
-  status public.redemption_status not null default 'pending',
-  requested_at timestamptz not null default now(),
-  decided_at timestamptz,
-  decided_by uuid references public.profiles(id) on delete set null,
-  updated_at timestamptz not null default now()
-);
-create index reward_redemptions_student_id_idx on public.reward_redemptions(student_id);
-create index reward_redemptions_status_idx on public.reward_redemptions(status);
-
-create trigger reward_redemptions_set_updated_at
-  before update on public.reward_redemptions
-  for each row execute function public.set_updated_at();

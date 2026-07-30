@@ -1,13 +1,11 @@
-import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
-import { getCurrentUser } from "@/lib/data/profile";
+import { requireRole } from "@/lib/auth/guard";
 import { getTeacherClassSubjects, getCurriculumPlan } from "@/lib/data/curriculum";
 import { CurriculumManager } from "./CurriculumManager";
 
 export default async function CurriculumPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireRole(["teacher"]);
 
   const combos = await getTeacherClassSubjects(user.id);
   const plans = await Promise.all(combos.map((c) => getCurriculumPlan(c.classId, c.subjectId)));

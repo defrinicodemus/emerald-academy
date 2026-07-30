@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { useAuth, type Role } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export const NAV: Record<Role, { title: string; url: string; icon: LucideIcon }[]> = {
   student: [
@@ -97,12 +98,17 @@ export function AppSidebar({
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
         <Link href="/dashboard" className="flex min-w-0 items-center gap-2 px-2 py-3">
-          <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-2xl bg-sidebar-primary text-sidebar-primary-foreground shadow-soft">
+          <div
+            className={cn(
+              "grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-[10px] text-sidebar-primary-foreground",
+              logoUrl ? "bg-transparent" : "bg-sidebar-primary shadow-soft",
+            )}
+          >
             {logoUrl ? (
               <img
                 src={logoUrl}
                 alt={schoolName ?? "Logo sekolah"}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-contain"
               />
             ) : (
               <Sparkles className="h-5 w-5" />

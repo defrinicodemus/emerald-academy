@@ -1,5 +1,5 @@
 import { redirect, notFound } from "next/navigation";
-import { getCurrentUser } from "@/lib/data/profile";
+import { requireRole } from "@/lib/auth/guard";
 import { getStudentSubjectGradeDetail } from "@/lib/data/gradebook";
 import { SubjectGradeDetailView } from "./SubjectGradeDetailView";
 
@@ -8,9 +8,8 @@ export default async function SubjectGradeDetailPage({
 }: {
   params: Promise<{ subjectId: string }>;
 }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  if (user.role !== "student" || !user.classId) redirect("/grades");
+  const user = await requireRole(["student"]);
+  if (!user.classId) redirect("/grades");
 
   const { subjectId } = await params;
   const detail = await getStudentSubjectGradeDetail(user.id, user.classId, subjectId);

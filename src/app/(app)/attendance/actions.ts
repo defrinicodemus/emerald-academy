@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/data/profile";
+import { assertRole } from "@/lib/auth/guard";
 import {
   getAttendanceRecap,
   getMeetingData,
@@ -11,11 +12,24 @@ import {
   type MeetingData,
 } from "@/lib/data/attendance";
 
+const EMPTY_MEETING_DATA: MeetingData = {
+  meetingId: null,
+  meetingDate: "",
+  materialTaught: "",
+  learningObjectiveId: null,
+  notes: "",
+  students: [],
+  tpOptions: [],
+  lastInputAt: null,
+};
+
 export async function fetchMeetingData(
   classId: string,
   subjectId: string,
   meetingNumber: number,
 ): Promise<MeetingData> {
+  const currentUser = await getCurrentUser();
+  if (assertRole(currentUser, ["teacher"])) return EMPTY_MEETING_DATA;
   return getMeetingData(classId, subjectId, meetingNumber);
 }
 
@@ -23,6 +37,8 @@ export async function fetchAttendanceRecap(
   classId: string,
   subjectId: string,
 ): Promise<AttendanceRecap> {
+  const currentUser = await getCurrentUser();
+  if (assertRole(currentUser, ["teacher"])) return { meetingNumbers: [], students: [] };
   return getAttendanceRecap(classId, subjectId);
 }
 

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
-import { ResponsiveDialogContent } from "./ResponsiveDialogContent";
+import { ResponsiveDialogContent } from "@/components/ResponsiveDialogContent";
 import { ZoomIn, ZoomOut, X } from "lucide-react";
 import type { StudentSubmissionRow } from "@/lib/data/review";
 import { gradeSubmission } from "./actions";

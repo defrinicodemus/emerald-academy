@@ -1,8 +1,7 @@
-import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getCurrentUser } from "@/lib/data/profile";
+import { requireRole } from "@/lib/auth/guard";
 import { getTeacherClassSubjects } from "@/lib/data/teaching";
 import { getCurriculumPlan } from "@/lib/data/curriculum";
 import {
@@ -16,8 +15,7 @@ import { AssignmentsTab } from "./AssignmentsTab";
 import { QuizzesTab } from "./QuizzesTab";
 
 export default async function ClassroomPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireRole(["teacher"]);
 
   const combos = await getTeacherClassSubjects(user.id);
   const [materialsList, assignmentsList, quizzesList, plansList] = await Promise.all([

@@ -1,7 +1,6 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
-import { getCurrentUser } from "@/lib/data/profile";
+import { requireRole } from "@/lib/auth/guard";
 import { getMonitoringPembelajaranData, type MonitoringClassRow } from "@/lib/data/monitoring";
 import { tone, BADGE_CLASS, BAR_CLASS } from "@/lib/monitoringTone";
 
@@ -11,9 +10,7 @@ const SEMESTER_LABEL: Record<"ganjil" | "genap", string> = {
 };
 
 export default async function StudentsPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  if (user.role !== "principal") redirect("/dashboard");
+  await requireRole(["principal"]);
 
   const data = await getMonitoringPembelajaranData();
 

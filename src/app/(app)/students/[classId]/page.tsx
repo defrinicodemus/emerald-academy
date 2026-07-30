@@ -1,5 +1,5 @@
-import { redirect, notFound } from "next/navigation";
-import { getCurrentUser } from "@/lib/data/profile";
+import { notFound } from "next/navigation";
+import { requireRole } from "@/lib/auth/guard";
 import { getClassMonitoringDetail } from "@/lib/data/monitoring";
 import { ClassDetailView } from "./ClassDetailView";
 
@@ -8,9 +8,7 @@ export default async function ClassMonitoringDetailPage({
 }: {
   params: Promise<{ classId: string }>;
 }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  if (user.role !== "principal") redirect("/dashboard");
+  await requireRole(["principal"]);
 
   const { classId } = await params;
   const data = await getClassMonitoringDetail(classId);

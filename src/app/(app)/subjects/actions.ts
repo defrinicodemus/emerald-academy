@@ -3,11 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/data/profile";
+import { assertRole } from "@/lib/auth/guard";
 import { getQuizForStudent, type StudentQuizData } from "@/lib/data/subjects";
 
 export async function markMaterialViewed(materialId: string): Promise<void> {
   const currentUser = await getCurrentUser();
-  if (!currentUser || currentUser.role !== "student") return;
+  if (assertRole(currentUser, ["student"])) return;
+  if (!currentUser) return;
 
   const supabase = await createClient();
   await supabase
@@ -25,9 +27,10 @@ export async function submitAssignment(
   content: string,
 ): Promise<{ ok: boolean; message: string }> {
   const currentUser = await getCurrentUser();
-  if (!currentUser || currentUser.role !== "student") {
-    return { ok: false, message: "Tidak diizinkan." };
-  }
+  const roleError = assertRole(currentUser, ["student"]);
+  if (roleError) return roleError;
+  if (!currentUser) return { ok: false, message: "Tidak diizinkan." };
+
   if (!content.trim()) {
     return { ok: false, message: "Jawaban tidak boleh kosong." };
   }
@@ -65,7 +68,8 @@ export async function submitAssignment(
 
 export async function fetchQuizForStudent(assignmentId: string): Promise<StudentQuizData | null> {
   const currentUser = await getCurrentUser();
-  if (!currentUser || currentUser.role !== "student") return null;
+  if (assertRole(currentUser, ["student"])) return null;
+  if (!currentUser) return null;
   return getQuizForStudent(assignmentId, currentUser.id);
 }
 
@@ -82,9 +86,9 @@ export async function submitQuizAnswers(
   answers: QuizAnswerInput[],
 ): Promise<{ ok: boolean; message: string; score?: number }> {
   const currentUser = await getCurrentUser();
-  if (!currentUser || currentUser.role !== "student") {
-    return { ok: false, message: "Tidak diizinkan." };
-  }
+  const roleError = assertRole(currentUser, ["student"]);
+  if (roleError) return roleError;
+  if (!currentUser) return { ok: false, message: "Tidak diizinkan." };
 
   const supabase = await createClient();
 

@@ -24,5 +24,5 @@ export async function login(formData: FormData) {
     redirect(`/login?error=${encodeURIComponent(notFoundError)}`);
   }
 
-  redirect("/dashboard");
+  redirect("/dashboard?welcome=1");
 }

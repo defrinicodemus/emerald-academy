@@ -4,11 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Database, KeyRound, School } from "lucide-react";
 import { getSchool } from "@/lib/data/school";
 import { listAllUsersForReset } from "@/lib/data/people";
+import { requireRole } from "@/lib/auth/guard";
 import { ResetPasswordPanel } from "./ResetPasswordPanel";
 import { LogoUploader } from "./LogoUploader";
 import { SchoolSettingsForm } from "./SchoolSettingsForm";
 
 export default async function SettingsPage() {
+  await requireRole(["admin"]);
+
   const [school, users] = await Promise.all([getSchool(), listAllUsersForReset()]);
 
   return (

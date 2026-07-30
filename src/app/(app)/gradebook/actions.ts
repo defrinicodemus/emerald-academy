@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/data/profile";
+import { assertRole } from "@/lib/auth/guard";
 import {
   averageOfTpAverages,
   getGradebookData,
@@ -122,5 +123,16 @@ export async function fetchStudentHistory(
   classId: string,
   subjectId: string,
 ): Promise<StudentHistoryData> {
+  const currentUser = await getCurrentUser();
+  if (assertRole(currentUser, ["teacher"])) {
+    return {
+      materialsByTp: [],
+      tugasByTp: [],
+      kuisByTp: [],
+      materialsViewedPercent: 0,
+      averageTugas: null,
+      averageKuis: null,
+    };
+  }
   return getStudentHistory(studentId, classId, subjectId);
 }

@@ -26,6 +26,16 @@ create table public.learning_objectives (
 );
 create index learning_objectives_plan_id_idx on public.learning_objectives(curriculum_plan_id);
 
+-- ── Wire materials/assignments to a TP (nullable until a teacher tags one) ──
+alter table public.materials
+  add column content text,
+  add column learning_objective_id uuid references public.learning_objectives(id) on delete set null;
+create index materials_learning_objective_id_idx on public.materials(learning_objective_id);
+
+alter table public.assignments
+  add column learning_objective_id uuid references public.learning_objectives(id) on delete set null;
+create index assignments_learning_objective_id_idx on public.assignments(learning_objective_id);
+
 alter table public.curriculum_plans enable row level security;
 alter table public.learning_objectives enable row level security;
 

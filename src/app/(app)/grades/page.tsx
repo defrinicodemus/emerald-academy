@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/data/profile";
+import { requireRole } from "@/lib/auth/guard";
 import { getStudentGrades } from "@/lib/data/gradebook";
 import { getSchoolReportData } from "@/lib/data/schoolReport";
 import { StudentGradesView } from "./StudentGradesView";
@@ -10,8 +9,7 @@ export default async function GradesPage({
 }: {
   searchParams: Promise<{ yearId?: string }>;
 }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireRole(["student", "principal"]);
 
   if (user.role === "student") {
     const subjects = await getStudentGrades(user.id, user.classId ?? null);

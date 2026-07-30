@@ -3,17 +3,18 @@
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { uploadSchoolLogo } from "../actions";
+import { LogoCropDialog } from "./LogoCropDialog";
 
 export function LogoUploader({ logoUrl }: { logoUrl: string | null }) {
   const [preview, setPreview] = useState<string | null>(logoUrl);
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [cropOpen, setCropOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  function doUpload(file: File) {
     const formData = new FormData();
     formData.set("logo", file);
     startTransition(async () => {
@@ -28,11 +29,38 @@ export function LogoUploader({ logoUrl }: { logoUrl: string | null }) {
     });
   }
 
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type === "image/svg+xml") {
+      doUpload(file);
+      return;
+    }
+    setCropFile(file);
+    setCropOpen(true);
+  }
+
+  function handleCropOpenChange(next: boolean) {
+    setCropOpen(next);
+    if (!next && inputRef.current) inputRef.current.value = "";
+  }
+
+  function handleCropped(file: File) {
+    setCropOpen(false);
+    doUpload(file);
+  }
+
   return (
     <div className="flex items-center gap-4">
-      <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl border bg-muted">
+      <div
+        className={cn(
+          "grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-[10px] border",
+          preview ? "bg-transparent" : "bg-muted",
+        )}
+      >
         {preview ? (
-          <img src={preview} alt="Logo sekolah" className="h-full w-full object-cover" />
+          <img src={preview} alt="Logo sekolah" className="h-full w-full object-contain" />
         ) : (
           <span className="text-xs text-muted-foreground">Belum ada</span>
         )}
@@ -57,6 +85,12 @@ export function LogoUploader({ logoUrl }: { logoUrl: string | null }) {
         </Button>
         <p className="mt-1 text-xs text-muted-foreground">PNG/JPG/WEBP/SVG, maks 2MB.</p>
       </div>
+      <LogoCropDialog
+        open={cropOpen}
+        onOpenChange={handleCropOpenChange}
+        file={cropFile}
+        onCropped={handleCropped}
+      />
     </div>
   );
 }

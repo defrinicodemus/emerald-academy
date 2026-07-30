@@ -13,11 +13,6 @@ alter table public.materials enable row level security;
 alter table public.assignments enable row level security;
 alter table public.submissions enable row level security;
 alter table public.grades enable row level security;
-alter table public.badges enable row level security;
-alter table public.student_badges enable row level security;
-alter table public.stars_ledger enable row level security;
-alter table public.rewards enable row level security;
-alter table public.reward_redemptions enable row level security;
 
 -- ── schools ──────────────────────────────────────────────────────────────
 create policy schools_select on public.schools for select using (true);
@@ -153,62 +148,3 @@ create policy grades_modify on public.grades for update
   with check (public.is_admin() or public.teaches_class(class_id));
 create policy grades_delete on public.grades for delete
   using (public.is_admin() or public.teaches_class(class_id));
-
--- ── badges ───────────────────────────────────────────────────────────────
-create policy badges_select on public.badges for select using (true);
-create policy badges_admin_write on public.badges for all
-  using (public.is_admin()) with check (public.is_admin());
-
--- ── student_badges ───────────────────────────────────────────────────────
-create policy student_badges_select on public.student_badges for select
-  using (
-    public.is_admin() or public.is_principal()
-    or student_id = auth.uid()
-    or public.teaches_class((select class_id from public.profiles where id = student_id))
-  );
-create policy student_badges_write on public.student_badges for insert
-  with check (
-    public.is_admin()
-    or public.teaches_class((select class_id from public.profiles where id = student_id))
-  );
-create policy student_badges_delete on public.student_badges for delete
-  using (public.is_admin());
-
--- ── stars_ledger (append-only) ──────────────────────────────────────────
-create policy stars_ledger_select on public.stars_ledger for select
-  using (
-    public.is_admin() or public.is_principal()
-    or student_id = auth.uid()
-    or public.teaches_class((select class_id from public.profiles where id = student_id))
-  );
-create policy stars_ledger_insert on public.stars_ledger for insert
-  with check (
-    public.is_admin()
-    or public.teaches_class((select class_id from public.profiles where id = student_id))
-  );
-
--- ── rewards ──────────────────────────────────────────────────────────────
-create policy rewards_select on public.rewards for select using (true);
-create policy rewards_admin_write on public.rewards for all
-  using (public.is_admin()) with check (public.is_admin());
-
--- ── reward_redemptions ───────────────────────────────────────────────────
-create policy reward_redemptions_select on public.reward_redemptions for select
-  using (
-    public.is_admin() or public.is_principal()
-    or student_id = auth.uid()
-    or public.teaches_class((select class_id from public.profiles where id = student_id))
-  );
-create policy reward_redemptions_insert on public.reward_redemptions for insert
-  with check (student_id = auth.uid() or public.is_admin());
-create policy reward_redemptions_update on public.reward_redemptions for update
-  using (
-    public.is_admin()
-    or public.teaches_class((select class_id from public.profiles where id = student_id))
-  )
-  with check (
-    public.is_admin()
-    or public.teaches_class((select class_id from public.profiles where id = student_id))
-  );
-create policy reward_redemptions_delete on public.reward_redemptions for delete
-  using (public.is_admin());

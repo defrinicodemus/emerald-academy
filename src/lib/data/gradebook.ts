@@ -1,6 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import { appliesToGrade } from "@/lib/data/subjects";
 
+// Grade averages are rounded to 2 decimal places (not whole numbers) so that
+// multi-step averaging (per-TP, then average-of-TP-averages, etc.) doesn't
+// compound rounding error — rounding to a whole number at each step can drift
+// the final grade by a couple of points versus the true average.
+export function round2(value: number): number {
+  return Number(value.toFixed(2));
+}
+
 export interface GradebookTpColumn {
   id: string;
   title: string;
@@ -116,7 +124,7 @@ export async function getGradebookData(classId: string, subjectId: string): Prom
       const scores = scoresByStudentTp.get(`${st.id}:${tp.id}`);
       tpAverages[tp.id] =
         scores && scores.length > 0
-          ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+          ? round2(scores.reduce((a, b) => a + b, 0) / scores.length)
           : null;
     }
     return {
@@ -152,22 +160,47 @@ export interface HistoryAssignmentRow {
   score: number | null;
 }
 
-export interface HistoryTpGroup {
+export interface HistoryTpGroup<T> {
   tpId: string;
   tpTitle: string;
-  items: HistoryAssignmentRow[];
+  items: T[];
 }
 
 export interface StudentHistoryData {
-  materials: HistoryMaterialRow[];
-  tugasByTp: HistoryTpGroup[];
-  kuisByTp: HistoryTpGroup[];
+  materialsByTp: HistoryTpGroup<HistoryMaterialRow>[];
+  tugasByTp: HistoryTpGroup<HistoryAssignmentRow>[];
+  kuisByTp: HistoryTpGroup<HistoryAssignmentRow>[];
   materialsViewedPercent: number;
   averageTugas: number | null;
   averageKuis: number | null;
 }
 
 const NO_TP_GROUP_ID = "tanpa-tp";
+
+function groupByTp<T>(
+  entries: {
+    learningObjectiveId: string | null;
+    tpTitle: string | null;
+    tpSortOrder: number | null;
+    item: T;
+  }[],
+): HistoryTpGroup<T>[] {
+  const groups = new Map<string, { title: string; sortOrder: number; items: T[] }>();
+  for (const e of entries) {
+    const key = e.learningObjectiveId ?? NO_TP_GROUP_ID;
+    const entry = groups.get(key) ?? {
+      title: e.learningObjectiveId ? (e.tpTitle ?? "TP") : "Tanpa TP",
+      sortOrder: e.learningObjectiveId ? (e.tpSortOrder ?? 0) : Number.MAX_SAFE_INTEGER,
+      items: [] as T[],
+    };
+    entry.items.push(e.item);
+    groups.set(key, entry);
+  }
+  return [...groups.entries()]
+    .map(([tpId, { title, sortOrder, items }]) => ({ tpId, tpTitle: title, sortOrder, items }))
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map(({ tpId, tpTitle, items }) => ({ tpId, tpTitle, items }));
+}
 
 export async function getStudentHistory(
   studentId: string,
@@ -179,7 +212,7 @@ export async function getStudentHistory(
   const [{ data: materials }, { data: views }, { data: assignments }] = await Promise.all([
     supabase
       .from("materials")
-      .select("id, title, kind")
+      .select("id, title, kind, learning_objective_id, learning_objectives(title, sort_order)")
       .eq("class_id", classId)
       .eq("subject_id", subjectId),
     supabase.from("material_views").select("material_id, viewed_at").eq("student_id", studentId),
@@ -191,16 +224,25 @@ export async function getStudentHistory(
   ]);
 
   const viewedByMaterial = new Map((views ?? []).map((v) => [v.material_id, v.viewed_at]));
-  const materialRows: HistoryMaterialRow[] = (materials ?? []).map((m) => ({
-    id: m.id,
-    title: m.title,
-    kind: m.kind,
-    viewed: viewedByMaterial.has(m.id),
-    viewedAt: viewedByMaterial.get(m.id) ?? null,
-  }));
+  const materialRows = (materials ?? []).map((m) => {
+    const lo = m.learning_objectives as unknown as { title: string; sort_order: number } | null;
+    const row: HistoryMaterialRow = {
+      id: m.id,
+      title: m.title,
+      kind: m.kind,
+      viewed: viewedByMaterial.has(m.id),
+      viewedAt: viewedByMaterial.get(m.id) ?? null,
+    };
+    return {
+      learningObjectiveId: m.learning_objective_id,
+      tpTitle: lo?.title ?? null,
+      tpSortOrder: lo?.sort_order ?? null,
+      item: row,
+    };
+  });
   const materialsViewedPercent =
     materialRows.length > 0
-      ? Math.round((materialRows.filter((m) => m.viewed).length / materialRows.length) * 100)
+      ? Math.round((materialRows.filter((m) => m.item.viewed).length / materialRows.length) * 100)
       : 0;
 
   const assignmentIds = (assignments ?? []).map((a) => a.id);
@@ -222,14 +264,8 @@ export async function getStudentHistory(
 
   const submissionByAssignment = new Map((submissions ?? []).map((s) => [s.assignment_id, s]));
 
-  const tugasGroups = new Map<
-    string,
-    { title: string; sortOrder: number; items: HistoryAssignmentRow[] }
-  >();
-  const kuisGroups = new Map<
-    string,
-    { title: string; sortOrder: number; items: HistoryAssignmentRow[] }
-  >();
+  const tugasEntries: Parameters<typeof groupByTp<HistoryAssignmentRow>>[0] = [];
+  const kuisEntries: Parameters<typeof groupByTp<HistoryAssignmentRow>>[0] = [];
   const tugasScores: number[] = [];
   const kuisScores: number[] = [];
 
@@ -241,49 +277,41 @@ export async function getStudentHistory(
       submittedAt: sub?.submitted_at ?? null,
       score: sub?.score ?? null,
     };
-    const groups = a.kind === "quiz" ? kuisGroups : tugasGroups;
-    const scores = a.kind === "quiz" ? kuisScores : tugasScores;
-    if (row.score != null) scores.push(row.score);
-
     const lo = a.learning_objectives as unknown as { title: string; sort_order: number } | null;
-    const tpId = a.learning_objective_id ?? NO_TP_GROUP_ID;
-    const entry = groups.get(tpId) ?? {
-      title: a.learning_objective_id ? (lo?.title ?? "TP") : "Tanpa TP",
-      sortOrder: a.learning_objective_id ? (lo?.sort_order ?? 0) : Number.MAX_SAFE_INTEGER,
-      items: [] as HistoryAssignmentRow[],
+    const entry = {
+      learningObjectiveId: a.learning_objective_id,
+      tpTitle: lo?.title ?? null,
+      tpSortOrder: lo?.sort_order ?? null,
+      item: row,
     };
-    entry.items.push(row);
-    groups.set(tpId, entry);
-  }
-
-  function toSortedGroups(
-    groups: Map<string, { title: string; sortOrder: number; items: HistoryAssignmentRow[] }>,
-  ): HistoryTpGroup[] {
-    return [...groups.entries()]
-      .map(([tpId, { title, sortOrder, items }]) => ({ tpId, tpTitle: title, sortOrder, items }))
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map(({ tpId, tpTitle, items }) => ({ tpId, tpTitle, items }));
+    if (a.kind === "quiz") {
+      kuisEntries.push(entry);
+      if (row.score != null) kuisScores.push(row.score);
+    } else {
+      tugasEntries.push(entry);
+      if (row.score != null) tugasScores.push(row.score);
+    }
   }
 
   return {
-    materials: materialRows,
-    tugasByTp: toSortedGroups(tugasGroups),
-    kuisByTp: toSortedGroups(kuisGroups),
+    materialsByTp: groupByTp(materialRows),
+    tugasByTp: groupByTp(tugasEntries),
+    kuisByTp: groupByTp(kuisEntries),
     materialsViewedPercent,
     averageTugas:
       tugasScores.length > 0
-        ? Math.round(tugasScores.reduce((a, b) => a + b, 0) / tugasScores.length)
+        ? round2(tugasScores.reduce((a, b) => a + b, 0) / tugasScores.length)
         : null,
     averageKuis:
       kuisScores.length > 0
-        ? Math.round(kuisScores.reduce((a, b) => a + b, 0) / kuisScores.length)
+        ? round2(kuisScores.reduce((a, b) => a + b, 0) / kuisScores.length)
         : null,
   };
 }
 
 export function averageOfTpAverages(tpAverages: (number | null | undefined)[]): number | null {
   const values = tpAverages.filter((v): v is number => v != null);
-  return values.length > 0 ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null;
+  return values.length > 0 ? round2(values.reduce((a, b) => a + b, 0) / values.length) : null;
 }
 
 export interface StudentTpGrade {
@@ -421,7 +449,7 @@ export async function getStudentGrades(
             sortOrder,
             average:
               tpScores.length > 0
-                ? Math.round(tpScores.reduce((a, b) => a + b, 0) / tpScores.length)
+                ? round2(tpScores.reduce((a, b) => a + b, 0) / tpScores.length)
                 : null,
           }))
           .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -581,7 +609,7 @@ export async function getStudentSubjectGradeDetail(
         tpTitle: title,
         sortOrder,
         average:
-          scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null,
+          scores.length > 0 ? round2(scores.reduce((a, b) => a + b, 0) / scores.length) : null,
         activities: [...activities].sort((a, b) =>
           (b.gradedAt ?? "").localeCompare(a.gradedAt ?? ""),
         ),

@@ -1,14 +1,12 @@
-import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
-import { getCurrentUser } from "@/lib/data/profile";
+import { requireRole } from "@/lib/auth/guard";
 import { getTeacherClassSubjects } from "@/lib/data/teaching";
 import { getClassRoster } from "@/lib/data/roster";
 import { RosterManager } from "./RosterManager";
 
 export default async function RosterPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireRole(["teacher"]);
 
   const combos = await getTeacherClassSubjects(user.id);
   const rosterList = await Promise.all(combos.map((c) => getClassRoster(c.classId, c.subjectId)));

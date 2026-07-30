@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { round2 } from "@/lib/data/gradebook";
 
 export interface SchoolReportYearOption {
   id: string;
@@ -222,7 +223,7 @@ export async function getSchoolReportData(
 
     // Step 3: class average is the mean of each student's final grade.
     const classAverage = average(studentFinals);
-    return classAverage != null ? Math.round(classAverage) : 0;
+    return classAverage != null ? round2(classAverage) : 0;
   }
 
   function percentOf(actual: number, expected: number): number {

@@ -120,25 +120,3 @@ as $$
 $$;
 
 grant execute on function public.email_for_username(text) to anon, authenticated;
-
--- ── Reporting views ──────────────────────────────────────────────────────
-create view public.student_star_totals
-with (security_invoker = true) as
-  select student_id, coalesce(sum(delta), 0)::int as total_stars
-  from public.stars_ledger
-  group by student_id;
-
-create view public.class_leaderboard
-with (security_invoker = true) as
-  select
-    p.id as student_id,
-    p.full_name,
-    p.class_id,
-    coalesce(sum(sl.delta), 0)::int as total_stars
-  from public.profiles p
-  left join public.stars_ledger sl on sl.student_id = p.id
-  where p.role = 'student'
-  group by p.id, p.full_name, p.class_id;
-
-grant select on public.student_star_totals to authenticated;
-grant select on public.class_leaderboard to authenticated;

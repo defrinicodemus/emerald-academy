@@ -1,11 +1,9 @@
-import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/data/profile";
+import { requireRole } from "@/lib/auth/guard";
 import { getSubjectsExplorerData } from "@/lib/data/subjects";
 import { SubjectsExplorer } from "./SubjectsExplorer";
 
 export default async function SubjectsPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireRole(["student"]);
 
   const data = await getSubjectsExplorerData(user.classId ?? null, user.id);
 

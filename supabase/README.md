@@ -2,25 +2,28 @@
 
 This folder contains the full database schema for the SD Inpres Nggodimeda LMS:
 schools, academic years, classes, subjects, profiles (students/teachers/principal/admin),
-materials, assignments, submissions, grades, gamification (badges/stars/rewards), and
-row-level security for all four roles.
+curriculum plans & learning objectives (TP), materials, assignments & quizzes, submissions,
+grades, attendance/jurnal, and row-level security for all four roles.
 
 ## Files
 
 - `migrations/20260705000001_schema.sql` — tables, enums, indexes
 - `migrations/20260705000002_functions.sql` — `handle_new_user` signup trigger, role
-  helpers used by RLS, the `email_for_username` login lookup, and two reporting views
+  helpers used by RLS, and the `email_for_username` login lookup
 - `migrations/20260705000003_rls.sql` — row-level security policies for every table
+  created in the base schema
+- everything after that is one migration per feature added post-launch (grade ranges,
+  school logo, curriculum/TP, quiz bank, material views, gradebook locks, attendance
+  journal, announcement categories, quiz builder, etc.) — see each file's own comment
 - `seed.sql` — demo data matching the current mock UI (school, classes, subjects,
-  10 demo accounts, announcements, materials, assignments, submissions, grades, badges,
-  stars, rewards, and two pending reward requests)
+  10 demo accounts, announcements, materials, assignments, submissions, grades)
 
 ## Applying this to a Supabase project
 
 1. Create a project at supabase.com (or use an existing one).
 2. `supabase login`
 3. `supabase link --project-ref <your-project-ref>`
-4. `supabase db push` — applies the 3 migrations
+4. `supabase db push` — applies all migrations in `migrations/`
 5. Run the seed manually once (it's not applied by `db push`):
    `psql "$(supabase db remote-url)" -f supabase/seed.sql`
    (or paste `seed.sql` into the SQL Editor in the Supabase dashboard)

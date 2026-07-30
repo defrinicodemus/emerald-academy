@@ -33,11 +33,11 @@ export function ChangePasswordDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="h-12 justify-start rounded-xl">
+        <Button variant="outline" className="h-12 justify-start rounded-md">
           Ganti Kata Sandi
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="rounded-md">
         <DialogHeader>
           <DialogTitle>Ganti Kata Sandi</DialogTitle>
         </DialogHeader>
@@ -60,7 +60,7 @@ export function ChangePasswordDialog() {
               minLength={6}
             />
           </div>
-          <Button type="submit" className="w-full rounded-xl" disabled={isPending}>
+          <Button type="submit" className="w-full rounded-md" disabled={isPending}>
             {isPending ? "Menyimpan..." : "Simpan"}
           </Button>
         </form>

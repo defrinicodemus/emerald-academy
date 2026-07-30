@@ -1,11 +1,14 @@
 import { PageHeader } from "@/components/PageHeader";
 import { getAcademicStructure } from "@/lib/data/academic";
+import { requireRole } from "@/lib/auth/guard";
 import { ClassesManager } from "./ClassesManager";
 import { SubjectsManager } from "./SubjectsManager";
 import { YearsManager } from "./YearsManager";
 import { PromoteClassesPanel } from "./PromoteClassesPanel";
 
 export default async function AcademicPage() {
+  await requireRole(["admin"]);
+
   const { classes, subjects, years } = await getAcademicStructure();
 
   return (

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { appliesToGrade } from "@/lib/data/subjects";
+import { round2 } from "@/lib/data/gradebook";
 
 export interface MonitoringClassRow {
   classId: string;
@@ -317,7 +318,7 @@ export async function getClassMonitoringDetail(
   // scores and dividing by (count * 100) * 100 reduces to a plain average.
   const averageGradePercent =
     gradedScores.length > 0
-      ? Math.round(gradedScores.reduce((a, b) => a + b, 0) / gradedScores.length)
+      ? round2(gradedScores.reduce((a, b) => a + b, 0) / gradedScores.length)
       : 0;
 
   return {

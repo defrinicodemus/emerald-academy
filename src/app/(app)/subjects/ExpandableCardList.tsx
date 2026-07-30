@@ -31,7 +31,7 @@ export function ExpandableCardList<T>({
 
   return (
     <div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="flex flex-col gap-3">
         {visible.map((item) => (
           <div key={keyOf(item)}>{renderItem(item)}</div>
         ))}
@@ -44,7 +44,7 @@ export function ExpandableCardList<T>({
             }`}
           >
             <div className="overflow-hidden">
-              <div className="grid gap-4 pt-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="flex flex-col gap-3 pt-3">
                 {rest.map((item) => (
                   <div key={keyOf(item)}>{renderItem(item)}</div>
                 ))}

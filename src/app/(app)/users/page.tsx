@@ -3,11 +3,14 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { listStudentsWithAvg, listTeachersWithStats, getPrincipal } from "@/lib/data/people";
 import { listClasses } from "@/lib/data/school";
+import { requireRole } from "@/lib/auth/guard";
 import { StudentsPanel } from "./StudentsPanel";
 import { TeachersPanel } from "./TeachersPanel";
 import { PrincipalPanel } from "./PrincipalPanel";
 
 export default async function UsersPage() {
+  await requireRole(["admin"]);
+
   const [students, teachers, principal, classes] = await Promise.all([
     listStudentsWithAvg(),
     listTeachersWithStats(),

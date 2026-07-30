@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentUser } from "@/lib/data/profile";
+import { assertRole } from "@/lib/auth/guard";
 
 const EMAIL_DOMAIN = "nggodimeda.sch.id";
 
@@ -15,6 +17,10 @@ function friendlyAuthError(message: string, label: string): string {
 }
 
 export async function createStudent(formData: FormData): Promise<Result> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["admin"]);
+  if (roleError) return roleError;
+
   const name = String(formData.get("name") ?? "").trim();
   const nisn = String(formData.get("nisn") ?? "").trim();
   const classId = String(formData.get("class_id") ?? "");
@@ -46,6 +52,10 @@ export async function createStudent(formData: FormData): Promise<Result> {
 }
 
 export async function updateStudent(formData: FormData): Promise<Result> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["admin"]);
+  if (roleError) return roleError;
+
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const nisn = String(formData.get("nisn") ?? "").trim();
@@ -70,6 +80,10 @@ export async function updateStudent(formData: FormData): Promise<Result> {
 }
 
 export async function deleteStudent(id: string): Promise<Result> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["admin"]);
+  if (roleError) return roleError;
+
   const supabase = await createClient();
   const [{ count: submissions }, { count: grades }] = await Promise.all([
     supabase.from("submissions").select("id", { count: "exact", head: true }).eq("student_id", id),
@@ -121,12 +135,20 @@ async function createStaffAccount(
 }
 
 export async function createTeacher(formData: FormData): Promise<Result> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["admin"]);
+  if (roleError) return roleError;
+
   const name = String(formData.get("name") ?? "").trim();
   const nip = String(formData.get("nip") ?? "").trim();
   return createStaffAccount(name, nip, "teacher");
 }
 
 export async function createPrincipal(formData: FormData): Promise<Result> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["admin"]);
+  if (roleError) return roleError;
+
   const name = String(formData.get("name") ?? "").trim();
   const nip = String(formData.get("nip") ?? "").trim();
 
@@ -142,6 +164,10 @@ export async function createPrincipal(formData: FormData): Promise<Result> {
 }
 
 export async function updateStaff(formData: FormData): Promise<Result> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["admin"]);
+  if (roleError) return roleError;
+
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const nip = String(formData.get("nip") ?? "").trim();
@@ -161,6 +187,10 @@ export async function updateStaff(formData: FormData): Promise<Result> {
 }
 
 export async function deleteTeacher(id: string): Promise<Result> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["admin"]);
+  if (roleError) return roleError;
+
   const supabase = await createClient();
   const { count: assignments } = await supabase
     .from("class_teacher_subjects")
@@ -182,6 +212,10 @@ export async function deleteTeacher(id: string): Promise<Result> {
 }
 
 export async function resetPasswordToDefault(id: string): Promise<Result> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["admin"]);
+  if (roleError) return roleError;
+
   const supabase = await createClient();
   const { data: profile } = await supabase
     .from("profiles")

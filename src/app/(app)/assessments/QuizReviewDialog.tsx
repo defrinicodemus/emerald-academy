@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
-import { ResponsiveDialogContent } from "./ResponsiveDialogContent";
+import { ResponsiveDialogContent } from "@/components/ResponsiveDialogContent";
 import { cn } from "@/lib/utils";
 import type { QuizAnswerReviewItem } from "@/lib/data/review";
 import { fetchQuizAnswerReview } from "./actions";

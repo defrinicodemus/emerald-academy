@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { round2 } from "@/lib/data/gradebook";
 
 export async function listStudentsWithAvg() {
   const supabase = await createClient();
@@ -25,7 +26,7 @@ export async function listStudentsWithAvg() {
       nisn: s.nisn as string | null,
       classId: s.class_id as string | null,
       className: (s.classes as unknown as { name: string } | null)?.name ?? null,
-      avg: acc ? Math.round(acc.sum / acc.count) : null,
+      avg: acc ? round2(acc.sum / acc.count) : null,
     };
   });
 }

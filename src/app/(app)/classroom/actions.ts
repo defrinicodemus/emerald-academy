@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/data/profile";
+import { assertRole } from "@/lib/auth/guard";
 import { extractYoutubeId, extractGoogleSlidesId } from "@/lib/materialEmbeds";
 import { sanitizeRichText } from "@/lib/sanitizeRichText";
 import { richTextIsEmpty } from "@/lib/richTextEmpty";
@@ -97,6 +98,10 @@ export async function createMaterial(
 export async function updateMaterial(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["teacher"]);
+  if (roleError) return roleError;
+
   const id = String(formData.get("id") ?? "");
   const title = String(formData.get("title") ?? "").trim();
   const learningObjectiveId = String(formData.get("learning_objective_id") ?? "");
@@ -125,6 +130,10 @@ export async function updateMaterial(
 }
 
 export async function deleteMaterial(id: string): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["teacher"]);
+  if (roleError) return roleError;
+
   const supabase = await createClient();
   const { error } = await supabase.from("materials").delete().eq("id", id);
   if (error) return { ok: false, message: error.message };
@@ -137,6 +146,10 @@ export async function setMaterialActive(
   id: string,
   isActive: boolean,
 ): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["teacher"]);
+  if (roleError) return roleError;
+
   const supabase = await createClient();
   const { error } = await supabase.from("materials").update({ is_active: isActive }).eq("id", id);
   if (error) return { ok: false, message: error.message };
@@ -254,6 +267,10 @@ export async function createAssignment(
 export async function updateAssignment(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["teacher"]);
+  if (roleError) return roleError;
+
   const id = String(formData.get("id") ?? "");
   const title = String(formData.get("title") ?? "").trim();
   const learningObjectiveId = String(formData.get("learning_objective_id") ?? "");
@@ -284,6 +301,10 @@ export async function setAssignmentActive(
   id: string,
   isActive: boolean,
 ): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["teacher"]);
+  if (roleError) return roleError;
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("assignments")
@@ -302,6 +323,10 @@ export async function setAssignmentActive(
 export async function removeAssignmentAttachmentImage(
   id: string,
 ): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["teacher"]);
+  if (roleError) return roleError;
+
   const supabase = await createClient();
   const { data: assignment } = await supabase
     .from("assignments")
@@ -331,6 +356,10 @@ export async function removeAssignmentAttachmentImage(
 }
 
 export async function deleteAssignment(id: string): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["teacher"]);
+  if (roleError) return roleError;
+
   const supabase = await createClient();
 
   const { count } = await supabase
@@ -427,6 +456,10 @@ export async function createQuiz(formData: FormData): Promise<{ ok: boolean; mes
 }
 
 export async function updateQuiz(formData: FormData): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["teacher"]);
+  if (roleError) return roleError;
+
   const id = String(formData.get("id") ?? "");
   const title = String(formData.get("title") ?? "").trim();
   const quizType = String(formData.get("quiz_type") ?? "");
@@ -489,6 +522,10 @@ export async function setQuizActive(
   id: string,
   isActive: boolean,
 ): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["teacher"]);
+  if (roleError) return roleError;
+
   const supabase = await createClient();
   const { error } = await supabase.from("assignments").update({ is_active: isActive }).eq("id", id);
   if (error) return { ok: false, message: error.message };
@@ -502,6 +539,10 @@ export async function setQuizActive(
 }
 
 export async function publishQuiz(id: string): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["teacher"]);
+  if (roleError) return roleError;
+
   const supabase = await createClient();
 
   const { data: questions } = await supabase
@@ -530,6 +571,10 @@ export async function publishQuiz(id: string): Promise<{ ok: boolean; message: s
 }
 
 export async function deleteQuiz(id: string): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["teacher"]);
+  if (roleError) return roleError;
+
   const supabase = await createClient();
 
   const { count } = await supabase
@@ -632,6 +677,10 @@ function parseQuestionAnswer(
 export async function addQuizQuestion(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["teacher"]);
+  if (roleError) return roleError;
+
   const assignmentId = String(formData.get("assignment_id") ?? "");
   const questionText = String(formData.get("question_text") ?? "").trim();
   const questionType = String(formData.get("question_type") ?? "");
@@ -716,6 +765,10 @@ export async function addQuizQuestion(
 export async function updateQuizQuestion(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["teacher"]);
+  if (roleError) return roleError;
+
   const id = String(formData.get("id") ?? "");
   const questionText = String(formData.get("question_text") ?? "").trim();
   const questionType = String(formData.get("question_type") ?? "");
@@ -802,6 +855,10 @@ export async function setQuizQuestionActive(
   id: string,
   isActive: boolean,
 ): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["teacher"]);
+  if (roleError) return roleError;
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("quiz_questions")
@@ -814,6 +871,10 @@ export async function setQuizQuestionActive(
 }
 
 export async function deleteQuizQuestion(id: string): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["teacher"]);
+  if (roleError) return roleError;
+
   const supabase = await createClient();
   const { error } = await supabase.from("quiz_questions").delete().eq("id", id);
   if (error) return { ok: false, message: error.message };

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/data/profile";
+import { assertRole } from "@/lib/auth/guard";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -96,6 +97,10 @@ export async function addLearningObjective(
 export async function updateLearningObjective(
   formData: FormData,
 ): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["teacher"]);
+  if (roleError) return roleError;
+
   const id = String(formData.get("id") ?? "");
   const title = String(formData.get("title") ?? "").trim();
   if (!id || !title) return { ok: false, message: "Judul TP wajib diisi." };
@@ -111,6 +116,10 @@ export async function updateLearningObjective(
 export async function deleteLearningObjective(
   id: string,
 ): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["teacher"]);
+  if (roleError) return roleError;
+
   const supabase = await createClient();
   const { error } = await supabase.from("learning_objectives").delete().eq("id", id);
   if (error) return { ok: false, message: error.message };
@@ -123,6 +132,10 @@ export async function moveLearningObjective(
   id: string,
   direction: "up" | "down",
 ): Promise<{ ok: boolean; message: string }> {
+  const currentUser = await getCurrentUser();
+  const roleError = assertRole(currentUser, ["teacher"]);
+  if (roleError) return roleError;
+
   const supabase = await createClient();
   const { data: current } = await supabase
     .from("learning_objectives")

@@ -52,6 +52,7 @@ export function EditProfileDialog({
   isAdmin: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"photo" | "avatar">("avatar");
   const [emoji, setEmoji] = useState(
     avatar && AVATAR_EMOJI_OPTIONS.includes(avatar) ? avatar : AVATAR_EMOJI_OPTIONS[0],
   );
@@ -59,6 +60,7 @@ export function EditProfileDialog({
 
   function handleOpenChange(next: boolean) {
     if (next) {
+      setMode("avatar");
       setEmoji(avatar && AVATAR_EMOJI_OPTIONS.includes(avatar) ? avatar : AVATAR_EMOJI_OPTIONS[0]);
     }
     setOpen(next);
@@ -80,11 +82,11 @@ export function EditProfileDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="h-12 justify-start rounded-xl">
+        <Button variant="outline" className="h-12 justify-start rounded-md">
           Data Diri
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="rounded-md">
         <DialogHeader>
           <DialogTitle>Data Diri</DialogTitle>
         </DialogHeader>
@@ -95,16 +97,65 @@ export function EditProfileDialog({
               <Input name="full_name" defaultValue={name} className="mt-1" required />
             </div>
           )}
-          <div>
-            <Label>Avatar</Label>
-            <div className="mt-2 grid grid-cols-6 gap-2">
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="radio"
+                id="profile-mode-photo"
+                checked={mode === "photo"}
+                onChange={() => setMode("photo")}
+                className="size-4 accent-primary"
+              />
+              <Label htmlFor="profile-mode-photo" className="cursor-pointer">
+                Foto Profil
+              </Label>
+            </div>
+            <div
+              className={cn(
+                "flex items-center gap-3 rounded-md border p-3 transition-opacity",
+                mode !== "photo" && "opacity-50",
+              )}
+            >
+              <div className="grid size-14 shrink-0 place-items-center rounded-md bg-muted text-2xl">
+                🖼️
+              </div>
+              <div className="min-w-0">
+                <Button type="button" variant="outline" size="sm" className="rounded-md" disabled>
+                  Pilih Foto
+                </Button>
+                <p className="mt-1 text-xs text-muted-foreground">Maks. ukuran file 2MB</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="radio"
+                id="profile-mode-avatar"
+                checked={mode === "avatar"}
+                onChange={() => setMode("avatar")}
+                className="size-4 accent-primary"
+              />
+              <Label htmlFor="profile-mode-avatar" className="cursor-pointer">
+                Avatar
+              </Label>
+            </div>
+            <div
+              className={cn(
+                "grid grid-cols-6 gap-2 rounded-md border p-3 transition-opacity",
+                mode !== "avatar" && "opacity-50",
+              )}
+            >
               {AVATAR_EMOJI_OPTIONS.map((option) => (
                 <button
                   key={option}
                   type="button"
+                  disabled={mode !== "avatar"}
                   onClick={() => setEmoji(option)}
                   className={cn(
-                    "grid h-10 w-10 place-items-center rounded-xl border text-xl transition",
+                    "grid h-10 w-10 place-items-center rounded-md border text-xl transition",
                     emoji === option
                       ? "border-primary bg-primary-soft/60"
                       : "border-transparent bg-muted/50 hover:bg-muted",
@@ -115,7 +166,8 @@ export function EditProfileDialog({
               ))}
             </div>
           </div>
-          <Button type="submit" className="w-full rounded-xl" disabled={isPending}>
+
+          <Button type="submit" className="w-full rounded-md" disabled={isPending}>
             {isPending ? "Menyimpan..." : "Simpan"}
           </Button>
         </form>

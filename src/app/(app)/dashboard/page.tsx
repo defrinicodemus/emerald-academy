@@ -13,6 +13,7 @@ import { StudentDashboard } from "@/components/dashboards/StudentDashboard";
 import { TeacherDashboard } from "@/components/dashboards/TeacherDashboard";
 import { PrincipalDashboard } from "@/components/dashboards/PrincipalDashboard";
 import { AdminDashboard } from "@/components/dashboards/AdminDashboard";
+import { PageEntranceAnimation } from "@/components/PageEntranceAnimation";
 
 export const metadata: Metadata = { title: "Beranda — LMS Nggodimeda" };
 
@@ -22,7 +23,11 @@ export default async function DashboardPage() {
 
   if (user.role === "student") {
     const data = await getStudentDashboardData(user.id, user.classId ?? null);
-    return <StudentDashboard data={data} />;
+    return (
+      <PageEntranceAnimation>
+        <StudentDashboard data={data} />
+      </PageEntranceAnimation>
+    );
   }
 
   if (user.role === "teacher") {
@@ -30,20 +35,30 @@ export default async function DashboardPage() {
     const classIds = [...new Set(combos.map((c) => c.classId))];
     const data = await getTeacherDashboardData(user.id, classIds, combos);
     return (
-      <TeacherDashboard
-        userName={user.name}
-        schoolName={school?.name ?? null}
-        combos={combos}
-        data={data}
-      />
+      <PageEntranceAnimation>
+        <TeacherDashboard
+          userName={user.name}
+          schoolName={school?.name ?? null}
+          combos={combos}
+          data={data}
+        />
+      </PageEntranceAnimation>
     );
   }
 
   if (user.role === "principal") {
     const data = await getPrincipalDashboardData();
-    return <PrincipalDashboard data={data} />;
+    return (
+      <PageEntranceAnimation>
+        <PrincipalDashboard data={data} />
+      </PageEntranceAnimation>
+    );
   }
 
   const data = await getAdminDashboardData();
-  return <AdminDashboard data={data} />;
+  return (
+    <PageEntranceAnimation>
+      <AdminDashboard data={data} />
+    </PageEntranceAnimation>
+  );
 }
